@@ -1,4 +1,4 @@
-# Hostman - File Upload Command-Line Tool
+# Hostman - Image host manager
 
 Hostman is a robust, cross-platform command-line application for uploading files (primarily images) to various hosting services. It prioritizes usability, scriptability, and maintainability.
 
@@ -134,23 +134,6 @@ When you upload a file to a host with deletion URL support:
 1. The deletion URL will be displayed and stored in the database
 2. In the upload history, records with deletion URLs are marked with [ID: X]
 3. You can use `hostman delete-file <id>` to delete the file from the remote host
-
-## Security
-
-API keys are encrypted in the configuration file. By default, Hostman uses AES-256-GCM encryption with a key derived from file permissions.
-
-## Troubleshooting
-
-### Common Issues
-
-- Upload fails: Check your API key and internet connection
-- Permission denied: Ensure proper file permissions for the config directory
-- Missing libraries: Install required dependencies
-- File deletion fails: Some hosts may require specific request methods or additional parameters
-
-## Logs
-
-Check the log file specified in your configuration for detailed error information.
 
 ## License
 
