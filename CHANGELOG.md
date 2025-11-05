@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.1.5 - 2025-11-05
+
+### Fixed
+
+- Replace fix-sized buffers with dynamic allocation
+- Better input validation with null checks and length limits
+- Add bounds checking to string operations
+- Use safe string functions where applicable
+
 ## [1.1.4] - 2025-04-30
 
 ### Fixed
@@ -37,7 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Formatting is more consistent
 - Bump for the AUR
 
-
 ## [1.1.0] - 2025-04-23
 
 ### Added
@@ -67,4 +75,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON path parsing for extracting the uploaded URL from the host response.
 - Build system using CMake.
 - Basic command-line interface parsing.
+
 ````
