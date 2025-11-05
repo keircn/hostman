@@ -138,15 +138,18 @@ hosts_add_interactive(void)
 
         if (strcmp(auth_type, "bearer") == 0)
         {
-            strcpy(default_key_name, "Authorization");
+            strncpy(default_key_name, "Authorization", sizeof(default_key_name) - 1);
+            default_key_name[sizeof(default_key_name) - 1] = '\0';
         }
         else if (strcmp(auth_type, "header") == 0)
         {
-            strcpy(default_key_name, "X-API-Key");
+            strncpy(default_key_name, "X-API-Key", sizeof(default_key_name) - 1);
+            default_key_name[sizeof(default_key_name) - 1] = '\0';
         }
         else
         {
-            strcpy(default_key_name, "api_key");
+            strncpy(default_key_name, "api_key", sizeof(default_key_name) - 1);
+            default_key_name[sizeof(default_key_name) - 1] = '\0';
         }
 
         api_key_name = read_input_default("API key header/parameter name", default_key_name);

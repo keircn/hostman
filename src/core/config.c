@@ -43,6 +43,11 @@ config_get_path(void)
 static host_config_t *
 parse_host_config(cJSON *host_json, const char *name)
 {
+    if (!host_json || !name || strlen(name) == 0)
+    {
+        return NULL;
+    }
+
     host_config_t *host = calloc(1, sizeof(host_config_t));
     if (!host)
     {
@@ -54,43 +59,71 @@ parse_host_config(cJSON *host_json, const char *name)
     cJSON *api_endpoint = cJSON_GetObjectItem(host_json, "api_endpoint");
     if (api_endpoint && cJSON_IsString(api_endpoint))
     {
-        host->api_endpoint = strdup(api_endpoint->valuestring);
+        const char *endpoint = cJSON_GetStringValue(api_endpoint);
+        if (endpoint && strlen(endpoint) > 0 && strlen(endpoint) < 2048)
+        {
+            host->api_endpoint = strdup(endpoint);
+        }
     }
 
     cJSON *auth_type = cJSON_GetObjectItem(host_json, "auth_type");
     if (auth_type && cJSON_IsString(auth_type))
     {
-        host->auth_type = strdup(auth_type->valuestring);
+        const char *auth = cJSON_GetStringValue(auth_type);
+        if (auth && strlen(auth) > 0 && strlen(auth) < 64)
+        {
+            host->auth_type = strdup(auth);
+        }
     }
 
     cJSON *api_key_name = cJSON_GetObjectItem(host_json, "api_key_name");
     if (api_key_name && cJSON_IsString(api_key_name))
     {
-        host->api_key_name = strdup(api_key_name->valuestring);
+        const char *key_name = cJSON_GetStringValue(api_key_name);
+        if (key_name && strlen(key_name) > 0 && strlen(key_name) < 256)
+        {
+            host->api_key_name = strdup(key_name);
+        }
     }
 
     cJSON *api_key_encrypted = cJSON_GetObjectItem(host_json, "api_key_encrypted");
     if (api_key_encrypted && cJSON_IsString(api_key_encrypted))
     {
-        host->api_key_encrypted = strdup(api_key_encrypted->valuestring);
+        const char *key_enc = cJSON_GetStringValue(api_key_encrypted);
+        if (key_enc && strlen(key_enc) > 0 && strlen(key_enc) < 4096)
+        {
+            host->api_key_encrypted = strdup(key_enc);
+        }
     }
 
     cJSON *request_body_format = cJSON_GetObjectItem(host_json, "request_body_format");
     if (request_body_format && cJSON_IsString(request_body_format))
     {
-        host->request_body_format = strdup(request_body_format->valuestring);
+        const char *format = cJSON_GetStringValue(request_body_format);
+        if (format && strlen(format) > 0 && strlen(format) < 32)
+        {
+            host->request_body_format = strdup(format);
+        }
     }
 
     cJSON *file_form_field = cJSON_GetObjectItem(host_json, "file_form_field");
     if (file_form_field && cJSON_IsString(file_form_field))
     {
-        host->file_form_field = strdup(file_form_field->valuestring);
+        const char *field = cJSON_GetStringValue(file_form_field);
+        if (field && strlen(field) > 0 && strlen(field) < 64)
+        {
+            host->file_form_field = strdup(field);
+        }
     }
 
     cJSON *response_url_json_path = cJSON_GetObjectItem(host_json, "response_url_json_path");
     if (response_url_json_path && cJSON_IsString(response_url_json_path))
     {
-        host->response_url_json_path = strdup(response_url_json_path->valuestring);
+        const char *path = cJSON_GetStringValue(response_url_json_path);
+        if (path && strlen(path) > 0 && strlen(path) < 256)
+        {
+            host->response_url_json_path = strdup(path);
+        }
     }
 
     cJSON *response_deletion_url_json_path =
@@ -656,6 +689,15 @@ config_load(void)
     long size = ftell(file);
     fseek(file, 0, SEEK_SET);
 
+    const long MAX_CONFIG_SIZE = 10 * 1024 * 1024;
+    if (size < 0 || size > MAX_CONFIG_SIZE)
+    {
+        log_error("Config file size is invalid or too large: %ld bytes", size);
+        fclose(file);
+        free(path);
+        return NULL;
+    }
+
     char *buffer = malloc(size + 1);
     if (!buffer)
     {
@@ -668,7 +710,7 @@ config_load(void)
     size_t read_size = fread(buffer, 1, size, file);
     fclose(file);
 
-    if (read_size != size)
+    if (read_size != (size_t)size)
     {
         log_error("Failed to read config file");
         free(buffer);

@@ -726,14 +726,16 @@ execute_command(command_args_t *args)
                 strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", tm_info);
 
                 char filename_display[36] = { 0 };
-                if (strlen(records[i]->filename) > 34)
+                if (records[i]->filename && strlen(records[i]->filename) > 34)
                 {
                     strncpy(filename_display, records[i]->filename, 31);
+                    filename_display[31] = '\0';
                     strcat(filename_display, "...");
                 }
-                else
+                else if (records[i]->filename)
                 {
-                    strcpy(filename_display, records[i]->filename);
+                    strncpy(filename_display, records[i]->filename, sizeof(filename_display) - 1);
+                    filename_display[sizeof(filename_display) - 1] = '\0';
                 }
 
                 printf(
@@ -1177,7 +1179,7 @@ run_setup_wizard(void)
     }
 
     char log_file[512];
-    sprintf(log_file, "%s/hostman.log", cache_dir);
+    snprintf(log_file, sizeof(log_file), "%s/hostman.log", cache_dir);
 
     char input[512];
     printf("Where would you like to store logs? [%s]: ", log_file);

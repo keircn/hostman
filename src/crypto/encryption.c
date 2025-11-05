@@ -73,11 +73,25 @@ static int
 generate_key_from_file(void)
 {
     const char *home = getenv("HOME");
-    if (home)
+    if (home && strlen(home) > 0)
     {
         unsigned char seed[64];
         memset(seed, 0, sizeof(seed));
-        snprintf((char *)seed, sizeof(seed), "hostman-fixed-salt-%s", home);
+
+        const char *prefix = "hostman-fixed-salt-";
+        size_t prefix_len = strlen(prefix);
+        size_t home_len = strlen(home);
+
+        if (prefix_len + home_len < sizeof(seed))
+        {
+            memcpy(seed, prefix, prefix_len);
+            memcpy(seed + prefix_len, home, home_len);
+        }
+        else
+        {
+            memcpy(seed, prefix, prefix_len);
+            memcpy(seed + prefix_len, home, sizeof(seed) - prefix_len - 1);
+        }
 
         EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
         if (mdctx)

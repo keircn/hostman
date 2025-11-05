@@ -211,7 +211,7 @@ detect_clipboard_manager(void)
         "fish_clipboard_copy" // Fish shell (im desperate)
     };
 
-    static char command_found[32] = { 0 };
+    static char command_found[64] = { 0 };
 
     if (command_found[0] != '\0')
     {
@@ -220,12 +220,18 @@ detect_clipboard_manager(void)
 
     for (size_t i = 0; i < sizeof(managers) / sizeof(managers[0]); i++)
     {
+        if (strlen(managers[i]) >= sizeof(command_found))
+        {
+            continue;
+        }
+
         char which_cmd[128];
         snprintf(which_cmd, sizeof(which_cmd), "which %s >/dev/null 2>&1", managers[i]);
 
         if (system(which_cmd) == 0)
         {
             strncpy(command_found, managers[i], sizeof(command_found) - 1);
+            command_found[sizeof(command_found) - 1] = '\0';
             return command_found;
         }
     }
@@ -242,8 +248,14 @@ get_clipboard_manager_name(void)
 bool
 copy_to_clipboard(const char *text)
 {
-    if (!text)
+    if (!text || strlen(text) == 0)
         return false;
+
+    if (strlen(text) > 4096)
+    {
+        log_error("Text too long for clipboard (max 4096 characters)");
+        return false;
+    }
 
     const char *clipboard_cmd = detect_clipboard_manager();
     if (!clipboard_cmd)
@@ -251,38 +263,50 @@ copy_to_clipboard(const char *text)
         return false;
     }
 
-    char cmd[1024];
+    size_t base_len = strlen("echo -n '' | ") + strlen(clipboard_cmd) + 1;
+    size_t cmd_len = base_len + strlen(text);
 
-    if (strcmp(clipboard_cmd, "wl-copy") == 0)
+    char *cmd = malloc(cmd_len);
+    if (!cmd)
     {
-        snprintf(cmd, sizeof(cmd), "echo -n '%s' | wl-copy", text);
-    }
-    else if (strcmp(clipboard_cmd, "xclip") == 0)
-    {
-        snprintf(cmd, sizeof(cmd), "echo -n '%s' | xclip -selection clipboard", text);
-    }
-    else if (strcmp(clipboard_cmd, "xsel") == 0)
-    {
-        snprintf(cmd, sizeof(cmd), "echo -n '%s' | xsel -ib", text);
-    }
-    else if (strcmp(clipboard_cmd, "pbcopy") == 0)
-    {
-        snprintf(cmd, sizeof(cmd), "echo -n '%s' | pbcopy", text);
-    }
-    else if (strcmp(clipboard_cmd, "clip.exe") == 0)
-    {
-        snprintf(cmd, sizeof(cmd), "echo -n '%s' | clip.exe", text);
-    }
-    else if (strcmp(clipboard_cmd, "fish_clipboard_copy") == 0)
-    {
-        snprintf(cmd, sizeof(cmd), "echo -n '%s' | fish_clipboard_copy", text);
-    }
-    else
-    {
+        log_error("Failed to allocate memory for clipboard command");
         return false;
     }
 
-    return (system(cmd) == 0);
+    bool result = false;
+    if (strcmp(clipboard_cmd, "wl-copy") == 0)
+    {
+        snprintf(cmd, cmd_len, "echo -n '%s' | wl-copy", text);
+    }
+    else if (strcmp(clipboard_cmd, "xclip") == 0)
+    {
+        snprintf(cmd, cmd_len, "echo -n '%s' | xclip -selection clipboard", text);
+    }
+    else if (strcmp(clipboard_cmd, "xsel") == 0)
+    {
+        snprintf(cmd, cmd_len, "echo -n '%s' | xsel -ib", text);
+    }
+    else if (strcmp(clipboard_cmd, "pbcopy") == 0)
+    {
+        snprintf(cmd, cmd_len, "echo -n '%s' | pbcopy", text);
+    }
+    else if (strcmp(clipboard_cmd, "clip.exe") == 0)
+    {
+        snprintf(cmd, cmd_len, "echo -n '%s' | clip.exe", text);
+    }
+    else if (strcmp(clipboard_cmd, "fish_clipboard_copy") == 0)
+    {
+        snprintf(cmd, cmd_len, "echo -n '%s' | fish_clipboard_copy", text);
+    }
+    else
+    {
+        free(cmd);
+        return false;
+    }
+
+    result = (system(cmd) == 0);
+    free(cmd);
+    return result;
 }
 
 void

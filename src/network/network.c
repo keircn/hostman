@@ -199,6 +199,49 @@ network_upload_file(const char *file_path, host_config_t *host)
         return NULL;
     }
 
+    if (!file_path || strlen(file_path) == 0)
+    {
+        response->error_message = strdup("File path is NULL or empty");
+        return response;
+    }
+
+    if (strlen(file_path) > PATH_MAX)
+    {
+        response->error_message = strdup("File path exceeds maximum length");
+        return response;
+    }
+
+    if (!host)
+    {
+        response->error_message = strdup("Host configuration is NULL");
+        return response;
+    }
+
+    if (!host->api_endpoint || strlen(host->api_endpoint) == 0)
+    {
+        response->error_message = strdup("API endpoint is NULL or empty");
+        return response;
+    }
+
+    if (!host->auth_type || strlen(host->auth_type) == 0)
+    {
+        response->error_message = strdup("Auth type is NULL or empty");
+        return response;
+    }
+
+    if (!host->file_form_field || strlen(host->file_form_field) == 0)
+    {
+        response->error_message = strdup("File form field is NULL or empty");
+        return response;
+    }
+
+    if (strcmp(host->auth_type, "none") != 0 && strcmp(host->auth_type, "bearer") != 0 &&
+        strcmp(host->auth_type, "header") != 0)
+    {
+        response->error_message = strdup("Invalid auth type specified");
+        return response;
+    }
+
     response->success = false;
     response->url = NULL;
     response->deletion_url = NULL;
@@ -268,10 +311,30 @@ network_upload_file(const char *file_path, host_config_t *host)
             char *api_key = encryption_decrypt_api_key(host->api_key_encrypted);
             if (api_key)
             {
-                char auth_header[1024];
-                snprintf(
-                  auth_header, sizeof(auth_header), "%s: Bearer %s", host->api_key_name, api_key);
+                if (!host->api_key_name || strlen(host->api_key_name) == 0)
+                {
+                    response->error_message = strdup("API key name is empty or NULL");
+                    free(api_key);
+                    curl_easy_cleanup(curl);
+                    curl_mime_free(mime);
+                    return response;
+                }
+
+                size_t header_len =
+                  strlen(host->api_key_name) + strlen(api_key) + 9;
+                char *auth_header = malloc(header_len);
+                if (!auth_header)
+                {
+                    response->error_message = strdup("Failed to allocate memory for auth header");
+                    free(api_key);
+                    curl_easy_cleanup(curl);
+                    curl_mime_free(mime);
+                    return response;
+                }
+
+                snprintf(auth_header, header_len, "%s: Bearer %s", host->api_key_name, api_key);
                 headers = curl_slist_append(headers, auth_header);
+                free(auth_header);
                 free(api_key);
             }
             else
@@ -287,9 +350,29 @@ network_upload_file(const char *file_path, host_config_t *host)
             char *api_key = encryption_decrypt_api_key(host->api_key_encrypted);
             if (api_key)
             {
-                char auth_header[1024];
-                snprintf(auth_header, sizeof(auth_header), "%s: %s", host->api_key_name, api_key);
+                if (!host->api_key_name || strlen(host->api_key_name) == 0)
+                {
+                    response->error_message = strdup("API key name is empty or NULL");
+                    free(api_key);
+                    curl_easy_cleanup(curl);
+                    curl_mime_free(mime);
+                    return response;
+                }
+
+                size_t header_len = strlen(host->api_key_name) + strlen(api_key) + 3;
+                char *auth_header = malloc(header_len);
+                if (!auth_header)
+                {
+                    response->error_message = strdup("Failed to allocate memory for auth header");
+                    free(api_key);
+                    curl_easy_cleanup(curl);
+                    curl_mime_free(mime);
+                    return response;
+                }
+
+                snprintf(auth_header, header_len, "%s: %s", host->api_key_name, api_key);
                 headers = curl_slist_append(headers, auth_header);
+                free(auth_header);
                 free(api_key);
             }
             else
