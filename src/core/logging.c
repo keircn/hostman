@@ -16,6 +16,47 @@ static FILE *log_file = NULL;
 static log_level_t current_log_level = LOG_LEVEL_INFO;
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+static int
+mkdir_recursive(const char *path, mode_t mode)
+{
+    char tmp[512];
+    char *p = NULL;
+    size_t len;
+
+    if (!path || strlen(path) >= sizeof(tmp))
+    {
+        return -1;
+    }
+
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    len = strlen(tmp);
+
+    if (tmp[len - 1] == '/')
+    {
+        tmp[len - 1] = '\0';
+    }
+
+    for (p = tmp + 1; *p; p++)
+    {
+        if (*p == '/')
+        {
+            *p = '\0';
+            if (mkdir(tmp, mode) != 0 && errno != EEXIST)
+            {
+                return -1;
+            }
+            *p = '/';
+        }
+    }
+
+    if (mkdir(tmp, mode) != 0 && errno != EEXIST)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
 static log_level_t
 string_to_log_level(const char *level_str)
 {
@@ -94,9 +135,7 @@ logging_init(void)
                 struct stat st;
                 if (stat(dir_path, &st) != 0 || !S_ISDIR(st.st_mode))
                 {
-                    char cmd[550];
-                    snprintf(cmd, sizeof(cmd), "mkdir -p \"%s\"", dir_path);
-                    system(cmd);
+                    mkdir_recursive(dir_path, 0755);
                 }
             }
 
