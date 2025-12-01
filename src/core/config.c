@@ -505,7 +505,6 @@ config_save(hostman_config_t *config)
     }
 
     fclose(file);
-    free(path);
 
     if (success)
     {
@@ -521,6 +520,7 @@ config_save(hostman_config_t *config)
         current_config = config;
     }
 
+    free(path);
     return success;
 }
 
