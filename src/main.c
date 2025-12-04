@@ -33,9 +33,27 @@ main(int argc, char *argv[])
         return run_setup_wizard();
     }
 
-    if (!encryption_init() || !network_init() || !db_init())
+    if (!encryption_init())
     {
-        log_error("Failed to initialize one or more required systems");
+        log_error("Failed to initialize encryption system");
+        logging_cleanup();
+        return EXIT_FAILURE;
+    }
+
+    if (!network_init())
+    {
+        log_error("Failed to initialize network system");
+        encryption_cleanup();
+        logging_cleanup();
+        return EXIT_FAILURE;
+    }
+
+    if (!db_init())
+    {
+        log_error("Failed to initialize database system");
+        network_cleanup();
+        encryption_cleanup();
+        logging_cleanup();
         return EXIT_FAILURE;
     }
 
