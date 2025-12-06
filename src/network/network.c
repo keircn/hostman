@@ -320,8 +320,7 @@ network_upload_file(const char *file_path, host_config_t *host)
                     return response;
                 }
 
-                size_t header_len =
-                  strlen(host->api_key_name) + strlen(api_key) + 9;
+                size_t header_len = strlen(host->api_key_name) + strlen(api_key) + 9;
                 char *auth_header = malloc(header_len);
                 if (!auth_header)
                 {
@@ -435,6 +434,9 @@ network_upload_file(const char *file_path, host_config_t *host)
                                  host->response_deletion_url_json_path);
                     }
                 }
+                curl_easy_cleanup(curl);
+                curl_mime_free(mime);
+                curl_slist_free_all(headers);
                 break;
             }
             else
