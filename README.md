@@ -19,7 +19,7 @@ Hostman is a robust, cross-platform command-line application for uploading files
 - C compiler (GCC or Clang)
 - CMake (3.12+)
 - libcurl
-- cJSON or jansson
+- cJSON
 - SQLite3
 - (Optional) ncurses for TUI features
 

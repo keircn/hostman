@@ -8,11 +8,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#ifdef USE_CJSON
 #include <cjson/cJSON.h>
-#else
-#include <jansson.h>
-#endif
 
 static hostman_config_t *current_config = NULL;
 
@@ -39,7 +35,6 @@ config_get_path(void)
     return path;
 }
 
-#ifdef USE_CJSON
 static host_config_t *
 parse_host_config(cJSON *host_json, const char *name)
 {
@@ -361,304 +356,6 @@ config_to_json(hostman_config_t *config)
     return json;
 }
 
-#else
-
-static host_config_t *
-parse_host_config(json_t *host_json, const char *name)
-{
-    host_config_t *host = calloc(1, sizeof(host_config_t));
-    if (!host)
-    {
-        return NULL;
-    }
-
-    host->name = strdup(name);
-
-    json_t *api_endpoint = json_object_get(host_json, "api_endpoint");
-    if (api_endpoint && json_is_string(api_endpoint))
-    {
-        host->api_endpoint = strdup(json_string_value(api_endpoint));
-    }
-
-    json_t *auth_type = json_object_get(host_json, "auth_type");
-    if (auth_type && json_is_string(auth_type))
-    {
-        host->auth_type = strdup(json_string_value(auth_type));
-    }
-
-    json_t *api_key_name = json_object_get(host_json, "api_key_name");
-    if (api_key_name && json_is_string(api_key_name))
-    {
-        host->api_key_name = strdup(json_string_value(api_key_name));
-    }
-
-    json_t *api_key_encrypted = json_object_get(host_json, "api_key_encrypted");
-    if (api_key_encrypted && json_is_string(api_key_encrypted))
-    {
-        host->api_key_encrypted = strdup(json_string_value(api_key_encrypted));
-    }
-
-    json_t *request_body_format = json_object_get(host_json, "request_body_format");
-    if (request_body_format && json_is_string(request_body_format))
-    {
-        host->request_body_format = strdup(json_string_value(request_body_format));
-    }
-
-    json_t *file_form_field = json_object_get(host_json, "file_form_field");
-    if (file_form_field && json_is_string(file_form_field))
-    {
-        host->file_form_field = strdup(json_string_value(file_form_field));
-    }
-
-    json_t *response_url_json_path = json_object_get(host_json, "response_url_json_path");
-    if (response_url_json_path && json_is_string(response_url_json_path))
-    {
-        host->response_url_json_path = strdup(json_string_value(response_url_json_path));
-    }
-
-    json_t *response_deletion_url_json_path =
-      json_object_get(host_json, "response_deletion_url_json_path");
-    if (response_deletion_url_json_path && json_is_string(response_deletion_url_json_path))
-    {
-        host->response_deletion_url_json_path =
-          strdup(json_string_value(response_deletion_url_json_path));
-    }
-
-    json_t *static_form_fields = json_object_get(host_json, "static_form_fields");
-    if (static_form_fields && json_is_object(static_form_fields))
-    {
-        size_t field_count = json_object_size(static_form_fields);
-        if (field_count > 0)
-        {
-            host->static_field_count = field_count;
-            host->static_field_names = calloc(field_count, sizeof(char *));
-            host->static_field_values = calloc(field_count, sizeof(char *));
-
-            if (!host->static_field_names || !host->static_field_values)
-            {
-                free(host->static_field_names);
-                free(host->static_field_values);
-                host->static_field_count = 0;
-            }
-            else
-            {
-                int i = 0;
-                const char *key;
-                json_t *value;
-
-                json_object_foreach(static_form_fields, key, value)
-                {
-                    if (json_is_string(value))
-                    {
-                        host->static_field_names[i] = strdup(key);
-                        host->static_field_values[i] = strdup(json_string_value(value));
-                        i++;
-                    }
-                }
-            }
-        }
-    }
-
-    return host;
-}
-
-static hostman_config_t *
-parse_config(json_t *json)
-{
-    if (!json)
-    {
-        return NULL;
-    }
-
-    hostman_config_t *config = calloc(1, sizeof(hostman_config_t));
-    if (!config)
-    {
-        return NULL;
-    }
-
-    json_t *version = json_object_get(json, "version");
-    if (version && json_is_integer(version))
-    {
-        config->version = json_integer_value(version);
-    }
-    else
-    {
-        config->version = 1;
-    }
-
-    json_t *default_host = json_object_get(json, "default_host");
-    if (default_host && json_is_string(default_host))
-    {
-        config->default_host = strdup(json_string_value(default_host));
-    }
-
-    json_t *log_level = json_object_get(json, "log_level");
-    if (log_level && json_is_string(log_level))
-    {
-        config->log_level = strdup(json_string_value(log_level));
-    }
-    else
-    {
-        config->log_level = strdup("INFO");
-    }
-
-    json_t *log_file = json_object_get(json, "log_file");
-    if (log_file && json_is_string(log_file))
-    {
-        config->log_file = strdup(json_string_value(log_file));
-    }
-    else
-    {
-        char *cache_dir = get_cache_dir();
-        if (cache_dir)
-        {
-            size_t len = strlen(cache_dir) + strlen("/hostman.log") + 1;
-            config->log_file = malloc(len);
-            if (config->log_file)
-            {
-                snprintf(config->log_file, len, "%s/hostman.log", cache_dir);
-            }
-            free(cache_dir);
-        }
-    }
-
-    json_t *hosts = json_object_get(json, "hosts");
-    if (hosts && json_is_object(hosts))
-    {
-        size_t host_count = json_object_size(hosts);
-        if (host_count > 0)
-        {
-            config->host_count = host_count;
-            config->hosts = calloc(host_count, sizeof(host_config_t *));
-
-            if (!config->hosts)
-            {
-                config->host_count = 0;
-            }
-            else
-            {
-                int i = 0;
-                const char *key;
-                json_t *value;
-
-                json_object_foreach(hosts, key, value)
-                {
-                    host_config_t *host_config = parse_host_config(value, key);
-                    if (host_config)
-                    {
-                        config->hosts[i++] = host_config;
-                    }
-                }
-            }
-        }
-    }
-
-    return config;
-}
-
-static json_t *
-host_config_to_json(host_config_t *host)
-{
-    json_t *json = json_object();
-
-    if (host->api_endpoint)
-    {
-        json_object_set_new(json, "api_endpoint", json_string(host->api_endpoint));
-    }
-
-    if (host->auth_type)
-    {
-        json_object_set_new(json, "auth_type", json_string(host->auth_type));
-    }
-
-    if (host->api_key_name)
-    {
-        json_object_set_new(json, "api_key_name", json_string(host->api_key_name));
-    }
-
-    if (host->api_key_encrypted)
-    {
-        json_object_set_new(json, "api_key_encrypted", json_string(host->api_key_encrypted));
-    }
-
-    if (host->request_body_format)
-    {
-        json_object_set_new(json, "request_body_format", json_string(host->request_body_format));
-    }
-
-    if (host->file_form_field)
-    {
-        json_object_set_new(json, "file_form_field", json_string(host->file_form_field));
-    }
-
-    if (host->response_url_json_path)
-    {
-        json_object_set_new(
-          json, "response_url_json_path", json_string(host->response_url_json_path));
-    }
-
-    if (host->response_deletion_url_json_path)
-    {
-        json_object_set_new(json,
-                            "response_deletion_url_json_path",
-                            json_string(host->response_deletion_url_json_path));
-    }
-
-    if (host->static_field_count > 0 && host->static_field_names && host->static_field_values)
-    {
-        json_t *static_form_fields = json_object();
-        for (int i = 0; i < host->static_field_count; i++)
-        {
-            if (host->static_field_names[i] && host->static_field_values[i])
-            {
-                json_object_set_new(static_form_fields,
-                                    host->static_field_names[i],
-                                    json_string(host->static_field_values[i]));
-            }
-        }
-        json_object_set_new(json, "static_form_fields", static_form_fields);
-    }
-
-    return json;
-}
-
-static json_t *
-config_to_json(hostman_config_t *config)
-{
-    json_t *json = json_object();
-
-    json_object_set_new(json, "version", json_integer(config->version));
-
-    if (config->default_host)
-    {
-        json_object_set_new(json, "default_host", json_string(config->default_host));
-    }
-
-    if (config->log_level)
-    {
-        json_object_set_new(json, "log_level", json_string(config->log_level));
-    }
-
-    if (config->log_file)
-    {
-        json_object_set_new(json, "log_file", json_string(config->log_file));
-    }
-
-    json_t *hosts = json_object();
-    for (int i = 0; i < config->host_count; i++)
-    {
-        if (config->hosts[i] && config->hosts[i]->name)
-        {
-            json_t *host_json = host_config_to_json(config->hosts[i]);
-            json_object_set_new(hosts, config->hosts[i]->name, host_json);
-        }
-    }
-    json_object_set_new(json, "hosts", hosts);
-
-    return json;
-}
-#endif
-
 hostman_config_t *
 config_load(void)
 {
@@ -722,7 +419,6 @@ config_load(void)
 
     hostman_config_t *config = NULL;
 
-#ifdef USE_CJSON
     cJSON *json = cJSON_Parse(buffer);
     if (!json)
     {
@@ -737,19 +433,6 @@ config_load(void)
         config = parse_config(json);
         cJSON_Delete(json);
     }
-#else
-    json_error_t error;
-    json_t *json = json_loads(buffer, 0, &error);
-    if (!json)
-    {
-        log_error("JSON parse error: %s", error.text);
-    }
-    else
-    {
-        config = parse_config(json);
-        json_decref(json);
-    }
-#endif
 
     free(buffer);
     free(path);
@@ -806,7 +489,6 @@ config_save(hostman_config_t *config)
 
     bool success = false;
 
-#ifdef USE_CJSON
     cJSON *json = config_to_json(config);
     if (json)
     {
@@ -821,17 +503,6 @@ config_save(hostman_config_t *config)
         }
         cJSON_Delete(json);
     }
-#else
-    json_t *json = config_to_json(config);
-    if (json)
-    {
-        if (json_dumpf(json, file, JSON_INDENT(2)) == 0)
-        {
-            success = true;
-        }
-        json_decref(json);
-    }
-#endif
 
     fclose(file);
     free(path);

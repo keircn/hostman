@@ -7,11 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifdef USE_CJSON
 #include <cjson/cJSON.h>
-#else
-#include <jansson.h>
-#endif
 
 char *
 get_filename_from_path(const char *path)
@@ -143,7 +139,6 @@ extract_json_string(const char *json, const char *path)
 
     char *result = NULL;
 
-#ifdef USE_CJSON
     cJSON *root = cJSON_Parse(json);
     if (!root)
     {
@@ -168,33 +163,6 @@ extract_json_string(const char *json, const char *path)
 
     free(path_copy);
     cJSON_Delete(root);
-#else
-    json_error_t error;
-    json_t *root = json_loads(json, 0, &error);
-    if (!root)
-    {
-        log_error("Failed to parse JSON: %s", error.text);
-        return NULL;
-    }
-
-    char *path_copy = strdup(path);
-    char *token = strtok(path_copy, ".");
-    json_t *current = root;
-
-    while (token && current)
-    {
-        current = json_object_get(current, token);
-        token = strtok(NULL, ".");
-    }
-
-    if (current && json_is_string(current))
-    {
-        result = strdup(json_string_value(current));
-    }
-
-    free(path_copy);
-    json_decref(root);
-#endif
 
     return result;
 }
