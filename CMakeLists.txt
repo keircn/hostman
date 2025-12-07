@@ -4,6 +4,10 @@ project(hostman VERSION 1.1.5 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-Wall -Wextra -Wpedantic -Werror=return-type)
+endif()
+
 option(HOSTMAN_USE_TUI "Build with TUI support (requires ncurses)" OFF)
 
 find_package(CURL REQUIRED)
