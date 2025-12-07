@@ -50,6 +50,11 @@ parse_host_config(cJSON *host_json, const char *name)
     }
 
     host->name = strdup(name);
+    if (!host->name)
+    {
+        free(host);
+        return NULL;
+    }
 
     cJSON *api_endpoint = cJSON_GetObjectItem(host_json, "api_endpoint");
     if (api_endpoint && cJSON_IsString(api_endpoint))
@@ -203,6 +208,13 @@ parse_config(cJSON *json)
     else
     {
         config->log_level = strdup("INFO");
+    }
+
+    if (!config->log_level)
+    {
+        free(config->default_host);
+        free(config);
+        return NULL;
     }
 
     cJSON *log_file = cJSON_GetObjectItem(json, "log_file");
