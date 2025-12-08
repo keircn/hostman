@@ -72,10 +72,6 @@ update_changelog() {
 
 - 
 
-### Changed
-
-- 
-
 ### Fixed
 
 - 
