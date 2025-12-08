@@ -48,8 +48,8 @@ write_callback(void *contents, size_t size, size_t nmemb, void *userp)
 
 static int
 progress_callback(void *clientp,
-                  curl_off_t dltotal,
-                  curl_off_t dlnow,
+                  curl_off_t dltotal __attribute__((unused)),
+                  curl_off_t dlnow __attribute__((unused)),
                   curl_off_t ultotal,
                   curl_off_t ulnow)
 {
