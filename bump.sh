@@ -112,7 +112,7 @@ build_native() {
   platform=$(get_native_platform)
   local build_dir="$RELEASE_DIR/$platform"
 
-  print_msg "$BLUE" "Building for $platform (native)..."
+  print_msg "$BLUE" "Building for $platform (native)..." >&2
 
   mkdir -p "$build_dir"
   cd "$build_dir"
@@ -124,14 +124,14 @@ build_native() {
     make_jobs=$(nproc)
   fi
 
-  if cmake "$PROJECT_ROOT" -DCMAKE_BUILD_TYPE=Release && make -j"$make_jobs"; then
+  if cmake "$PROJECT_ROOT" -DCMAKE_BUILD_TYPE=Release >&2 && make -j"$make_jobs" >&2; then
     cd "$PROJECT_ROOT"
-    print_msg "$GREEN" "Successfully built for $platform"
+    print_msg "$GREEN" "Successfully built for $platform" >&2
     echo "$platform"
     return 0
   else
     cd "$PROJECT_ROOT"
-    print_msg "$RED" "Build failed for $platform"
+    print_msg "$RED" "Build failed for $platform" >&2
     return 1
   fi
 }
@@ -207,19 +207,22 @@ usage() {
   echo "Usage: $0 [OPTIONS] <major|minor|patch>"
   echo ""
   echo "Options:"
-  echo "  -h, --help      Show this help message"
-  echo "  -s, --skip-build Skip building binaries (only bump version)"
-  echo "  -c, --clean     Clean release directory before building"
+  echo "  -h, --help        Show this help message"
+  echo "  -s, --skip-build  Skip building binaries (only bump version)"
+  echo "  -b, --build-only  Only build and create tarball (no version bump)"
+  echo "  -c, --clean       Clean release directory before building"
   echo ""
   echo "Examples:"
-  echo "  $0 patch        # Bump patch version (1.1.5 -> 1.1.6)"
-  echo "  $0 minor        # Bump minor version (1.1.5 -> 1.2.0)"
-  echo "  $0 major        # Bump major version (1.1.5 -> 2.0.0)"
-  echo "  $0 -s patch     # Only bump version, don't build"
+  echo "  $0 patch          # Bump patch version (1.1.5 -> 1.1.6)"
+  echo "  $0 minor          # Bump minor version (1.1.5 -> 1.2.0)"
+  echo "  $0 major          # Bump major version (1.1.5 -> 2.0.0)"
+  echo "  $0 -s patch       # Only bump version, don't build"
+  echo "  $0 -b             # Only build release tarball for current version"
 }
 
 main() {
   local skip_build=false
+  local build_only=false
   local clean=false
   local bump_type=""
 
@@ -231,6 +234,10 @@ main() {
       ;;
     -s | --skip-build)
       skip_build=true
+      shift
+      ;;
+    -b | --build-only)
+      build_only=true
       shift
       ;;
     -c | --clean)
@@ -249,7 +256,7 @@ main() {
     esac
   done
 
-  if [[ -z "$bump_type" ]]; then
+  if [[ "$build_only" == false && -z "$bump_type" ]]; then
     print_msg "$RED" "Error: bump type required (major, minor, or patch)"
     usage
     exit 1
@@ -260,11 +267,15 @@ main() {
   print_msg "$BLUE" "Current version: $current_version"
 
   local new_version
-  new_version=$(bump_version "$current_version" "$bump_type")
-  print_msg "$GREEN" "New version: $new_version"
-
-  update_cmake_version "$new_version"
-  update_changelog "$new_version"
+  if [[ "$build_only" == true ]]; then
+    new_version="$current_version"
+    print_msg "$BLUE" "Build-only mode, using current version: $new_version"
+  else
+    new_version=$(bump_version "$current_version" "$bump_type")
+    print_msg "$GREEN" "New version: $new_version"
+    update_cmake_version "$new_version"
+    update_changelog "$new_version"
+  fi
 
   if [[ "$skip_build" == true ]]; then
     print_msg "$YELLOW" "Skipping build (--skip-build specified)"
@@ -295,7 +306,9 @@ main() {
 
   echo ""
   print_msg "$GREEN" "=== Release $new_version Summary ==="
-  print_msg "$BLUE" "Version bumped: $current_version -> $new_version"
+  if [[ "$build_only" == false ]]; then
+    print_msg "$BLUE" "Version bumped: $current_version -> $new_version"
+  fi
   print_msg "$GREEN" "Built for: $built_platform"
 
   echo ""
@@ -304,11 +317,17 @@ main() {
 
   echo ""
   print_msg "$BLUE" "Next steps:"
-  echo "  1. Edit CHANGELOG.md to add your changes"
-  echo "  2. Commit: git add CMakeLists.txt CHANGELOG.md && git commit -m 'Bump version to $new_version'"
-  echo "  3. Tag: git tag -a v$new_version -m 'Version $new_version'"
-  echo "  4. Push: git push origin main --tags"
-  echo "  5. Upload archives from $RELEASE_DIR/ to GitHub Releases"
+  if [[ "$build_only" == false ]]; then
+    echo "  1. Edit CHANGELOG.md to add your changes"
+    echo "  2. Commit: git add CMakeLists.txt CHANGELOG.md && git commit -m 'Bump version to $new_version'"
+    echo "  3. Tag: git tag -a v$new_version -m 'Version $new_version'"
+    echo "  4. Push: git push origin main --tags"
+    echo "  5. Upload archives from $RELEASE_DIR/ to GitHub Releases"
+  else
+    echo "  1. Tag (if not already): git tag -a v$new_version -m 'Version $new_version'"
+    echo "  2. Push (if needed): git push origin main --tags"
+    echo "  3. Upload archives from $RELEASE_DIR/ to GitHub Releases"
+  fi
 }
 
 main "$@"
