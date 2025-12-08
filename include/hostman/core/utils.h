@@ -8,7 +8,7 @@
 #define HOSTMAN_BUILD_DATE __DATE__
 #define HOSTMAN_BUILD_TIME __TIME__
 #define HOSTMAN_AUTHOR "Keiran"
-#define HOSTMAN_HOMEPAGE "https://github.com/q4ow/hostman"
+#define HOSTMAN_HOMEPAGE "https://github.com/Bestire/hostman"
 
 char *
 get_filename_from_path(const char *path);
