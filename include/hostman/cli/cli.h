@@ -18,6 +18,14 @@ typedef enum
     CMD_HELP
 } command_type_t;
 
+typedef enum
+{
+    OUTPUT_NORMAL,
+    OUTPUT_QUIET,
+    OUTPUT_VERBOSE,
+    OUTPUT_JSON
+} output_mode_t;
+
 typedef struct
 {
     command_type_t type;
@@ -30,6 +38,7 @@ typedef struct
     char *config_value;
     char *command_name;
     int upload_id;
+    output_mode_t output_mode;
 } command_args_t;
 
 command_args_t

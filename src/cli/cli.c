@@ -22,11 +22,31 @@
 #define EXIT_FILE_ERROR 4
 #define EXIT_CONFIG_ERROR 5
 
+static bool use_color = true;
+static output_mode_t current_output_mode = OUTPUT_NORMAL;
+
+static void
+init_color_support(void)
+{
+    if (getenv("NO_COLOR") != NULL)
+    {
+        use_color = false;
+    }
+}
+
 void
 print_section_header(const char *text)
 {
-    printf("\033[1;36m┌─ %s ───────────────────────────────────────────────────────────┐\033[0m\n",
-           text);
+    if (use_color)
+    {
+        printf(
+          "\033[1;36m┌─ %s ───────────────────────────────────────────────────────────┐\033[0m\n",
+          text);
+    }
+    else
+    {
+        printf("--- %s ---\n", text);
+    }
 }
 
 void
@@ -34,9 +54,11 @@ print_success(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-    printf("\033[1;32m");
+    if (use_color)
+        printf("\033[1;32m");
     vprintf(format, args);
-    printf("\033[0m");
+    if (use_color)
+        printf("\033[0m");
     va_end(args);
 }
 
@@ -45,33 +67,54 @@ print_error(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-    fprintf(stderr, "\033[1;31m");
+    if (use_color)
+        fprintf(stderr, "\033[1;31m");
     vfprintf(stderr, format, args);
-    fprintf(stderr, "\033[0m");
+    if (use_color)
+        fprintf(stderr, "\033[0m");
     va_end(args);
 }
 
 void
 print_info(const char *format, ...)
 {
+    if (current_output_mode == OUTPUT_QUIET)
+        return;
+
     va_list args;
     va_start(args, format);
-    printf("\033[0;36m");
+    if (use_color)
+        printf("\033[0;36m");
     vprintf(format, args);
-    printf("\033[0m");
+    if (use_color)
+        printf("\033[0m");
     va_end(args);
 }
 
 void
 print_command_syntax(const char *command, const char *args)
 {
-    printf("  \033[1;33m%s\033[0m %s\n", command, args);
+    if (use_color)
+    {
+        printf("  \033[1;33m%s\033[0m %s\n", command, args);
+    }
+    else
+    {
+        printf("  %s %s\n", command, args);
+    }
 }
 
 void
 print_option(const char *option, const char *description)
 {
-    printf("  \033[1;35m%-20s\033[0m %s\n", option, description);
+    if (use_color)
+    {
+        printf("  \033[1;35m%-20s\033[0m %s\n", option, description);
+    }
+    else
+    {
+        printf("  %-20s %s\n", option, description);
+    }
 }
 
 void
@@ -249,6 +292,33 @@ parse_args(int argc, char *argv[])
     args.type = CMD_UNKNOWN;
     args.page = 1;
     args.limit = 20;
+    args.output_mode = OUTPUT_NORMAL;
+
+    init_color_support();
+
+    for (int i = 1; i < argc; i++)
+    {
+        if (strcmp(argv[i], "--json") == 0)
+        {
+            args.output_mode = OUTPUT_JSON;
+            current_output_mode = OUTPUT_JSON;
+            use_color = false;
+        }
+        else if (strcmp(argv[i], "--quiet") == 0 || strcmp(argv[i], "-q") == 0)
+        {
+            args.output_mode = OUTPUT_QUIET;
+            current_output_mode = OUTPUT_QUIET;
+        }
+        else if (strcmp(argv[i], "--verbose") == 0)
+        {
+            args.output_mode = OUTPUT_VERBOSE;
+            current_output_mode = OUTPUT_VERBOSE;
+        }
+        else if (strcmp(argv[i], "--no-color") == 0)
+        {
+            use_color = false;
+        }
+    }
 
     if (argc < 2)
     {
@@ -256,15 +326,27 @@ parse_args(int argc, char *argv[])
         return args;
     }
 
-    if (strcmp(argv[1], "upload") == 0)
+    int cmd_index = 1;
+    while (cmd_index < argc && argv[cmd_index][0] == '-')
+    {
+        cmd_index++;
+    }
+
+    if (cmd_index >= argc)
+    {
+        print_command_help("general");
+        return args;
+    }
+
+    if (strcmp(argv[cmd_index], "upload") == 0)
     {
         args.type = CMD_UPLOAD;
     }
-    else if (strcmp(argv[1], "list-uploads") == 0)
+    else if (strcmp(argv[cmd_index], "list-uploads") == 0)
     {
         args.type = CMD_LIST_UPLOADS;
     }
-    else if (strcmp(argv[1], "list-hosts") == 0)
+    else if (strcmp(argv[cmd_index], "list-hosts") == 0)
     {
         args.type = CMD_LIST_HOSTS;
 
@@ -272,7 +354,7 @@ parse_args(int argc, char *argv[])
 
         int option_index = 0;
         int c;
-        optind = 2;
+        optind = cmd_index + 1;
 
         while ((c = getopt_long(argc, argv, "", long_options, &option_index)) != -1)
         {
@@ -286,7 +368,7 @@ parse_args(int argc, char *argv[])
             }
         }
     }
-    else if (strcmp(argv[1], "delete-upload") == 0)
+    else if (strcmp(argv[cmd_index], "delete-upload") == 0)
     {
         args.type = CMD_DELETE_UPLOAD;
 
@@ -294,7 +376,7 @@ parse_args(int argc, char *argv[])
 
         int option_index = 0;
         int c;
-        optind = 2;
+        optind = cmd_index + 1;
 
         while ((c = getopt_long(argc, argv, "", long_options, &option_index)) != -1)
         {
@@ -323,7 +405,7 @@ parse_args(int argc, char *argv[])
             args.type = CMD_UNKNOWN;
         }
     }
-    else if (strcmp(argv[1], "delete-file") == 0)
+    else if (strcmp(argv[cmd_index], "delete-file") == 0)
     {
         args.type = CMD_DELETE_FILE;
 
@@ -331,7 +413,7 @@ parse_args(int argc, char *argv[])
 
         int option_index = 0;
         int c;
-        optind = 2;
+        optind = cmd_index + 1;
 
         while ((c = getopt_long(argc, argv, "", long_options, &option_index)) != -1)
         {
@@ -360,29 +442,29 @@ parse_args(int argc, char *argv[])
             args.type = CMD_UNKNOWN;
         }
     }
-    else if (strcmp(argv[1], "add-host") == 0)
+    else if (strcmp(argv[cmd_index], "add-host") == 0)
     {
         args.type = CMD_ADD_HOST;
     }
-    else if (strcmp(argv[1], "remove-host") == 0)
+    else if (strcmp(argv[cmd_index], "remove-host") == 0)
     {
         args.type = CMD_REMOVE_HOST;
     }
-    else if (strcmp(argv[1], "set-default-host") == 0)
+    else if (strcmp(argv[cmd_index], "set-default-host") == 0)
     {
         args.type = CMD_SET_DEFAULT_HOST;
     }
-    else if (strcmp(argv[1], "config") == 0)
+    else if (strcmp(argv[cmd_index], "config") == 0)
     {
         args.type = CMD_CONFIG;
     }
-    else if (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0 ||
-             strcmp(argv[1], "-h") == 0)
+    else if (strcmp(argv[cmd_index], "help") == 0 || strcmp(argv[cmd_index], "--help") == 0 ||
+             strcmp(argv[cmd_index], "-h") == 0)
     {
         args.type = CMD_HELP;
-        if (argc > 2)
+        if (cmd_index + 1 < argc)
         {
-            args.command_name = strdup(argv[2]);
+            args.command_name = strdup(argv[cmd_index + 1]);
         }
         else
         {
@@ -391,7 +473,7 @@ parse_args(int argc, char *argv[])
     }
     else
     {
-        print_error("Unknown command: %s\n", argv[1]);
+        print_error("Unknown command: %s\n", argv[cmd_index]);
         args.type = CMD_UNKNOWN;
         return args;
     }
@@ -406,7 +488,7 @@ parse_args(int argc, char *argv[])
 
             int option_index = 0;
             int c;
-            optind = 2;
+            optind = cmd_index + 1;
 
             while ((c = getopt_long(argc, argv, "h:", long_options, &option_index)) != -1)
             {
@@ -445,7 +527,7 @@ parse_args(int argc, char *argv[])
 
             int option_index = 0;
             int c;
-            optind = 2;
+            optind = cmd_index + 1;
 
             while ((c = getopt_long(argc, argv, "h:p:l:", long_options, &option_index)) != -1)
             {
@@ -486,10 +568,9 @@ parse_args(int argc, char *argv[])
 
         case CMD_REMOVE_HOST:
         {
-            optind = 2;
-            if (optind < argc)
+            if (cmd_index + 1 < argc)
             {
-                args.host_name = strdup(argv[optind]);
+                args.host_name = strdup(argv[cmd_index + 1]);
             }
             else
             {
@@ -501,10 +582,9 @@ parse_args(int argc, char *argv[])
 
         case CMD_SET_DEFAULT_HOST:
         {
-            optind = 2;
-            if (optind < argc)
+            if (cmd_index + 1 < argc)
             {
-                args.host_name = strdup(argv[optind]);
+                args.host_name = strdup(argv[cmd_index + 1]);
             }
             else
             {
@@ -516,16 +596,16 @@ parse_args(int argc, char *argv[])
 
         case CMD_CONFIG:
         {
-            optind = 2;
-            if (optind < argc)
+            int cfg_idx = cmd_index + 1;
+            if (cfg_idx < argc)
             {
-                if (strcmp(argv[optind], "get") == 0)
+                if (strcmp(argv[cfg_idx], "get") == 0)
                 {
                     args.config_get = true;
-                    optind++;
-                    if (optind < argc)
+                    cfg_idx++;
+                    if (cfg_idx < argc)
                     {
-                        args.config_key = strdup(argv[optind]);
+                        args.config_key = strdup(argv[cfg_idx]);
                     }
                     else
                     {
@@ -533,17 +613,17 @@ parse_args(int argc, char *argv[])
                         args.type = CMD_UNKNOWN;
                     }
                 }
-                else if (strcmp(argv[optind], "set") == 0)
+                else if (strcmp(argv[cfg_idx], "set") == 0)
                 {
                     args.config_get = false;
-                    optind++;
-                    if (optind < argc)
+                    cfg_idx++;
+                    if (cfg_idx < argc)
                     {
-                        args.config_key = strdup(argv[optind]);
-                        optind++;
-                        if (optind < argc)
+                        args.config_key = strdup(argv[cfg_idx]);
+                        cfg_idx++;
+                        if (cfg_idx < argc)
                         {
-                            args.config_value = strdup(argv[optind]);
+                            args.config_value = strdup(argv[cfg_idx]);
                         }
                         else
                         {
