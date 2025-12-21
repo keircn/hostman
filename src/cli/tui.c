@@ -19,10 +19,14 @@
 
 static WINDOW *main_win = NULL;
 static WINDOW *status_win = NULL;
+static bool tui_initialized = false;
 
 static void
 tui_init(void)
 {
+    if (tui_initialized)
+        return;
+
     initscr();
     cbreak();
     noecho();
@@ -47,16 +51,23 @@ tui_init(void)
     main_win = newwin(max_y - 2, max_x, 0, 0);
     status_win = newwin(2, max_x, max_y - 2, 0);
     keypad(main_win, TRUE);
+    tui_initialized = true;
 }
 
 static void
 tui_cleanup(void)
 {
+    if (!tui_initialized)
+        return;
+
     if (main_win)
         delwin(main_win);
     if (status_win)
         delwin(status_win);
+    main_win = NULL;
+    status_win = NULL;
     endwin();
+    tui_initialized = false;
 }
 
 static void
@@ -272,8 +283,8 @@ tui_draw_host_config(host_config_t *host, int selected)
     wrefresh(main_win);
 }
 
-int
-tui_host_editor(const char *host_name)
+static int
+tui_host_editor_internal(const char *host_name)
 {
     hostman_config_t *config = config_load();
     if (!config)
@@ -283,7 +294,6 @@ tui_host_editor(const char *host_name)
     if (!host)
         return EXIT_FAILURE;
 
-    tui_init();
     tui_status("Editing host configuration");
 
     int selected = 0;
@@ -313,7 +323,6 @@ tui_host_editor(const char *host_name)
                 {
                     if (modified)
                         config_save(config);
-                    tui_cleanup();
                     return EXIT_SUCCESS;
                 }
                 else
@@ -438,10 +447,18 @@ tui_host_editor(const char *host_name)
             case 27:
                 if (modified)
                     config_save(config);
-                tui_cleanup();
                 return EXIT_SUCCESS;
         }
     }
+}
+
+int
+tui_host_editor(const char *host_name)
+{
+    tui_init();
+    int result = tui_host_editor_internal(host_name);
+    tui_cleanup();
+    return result;
 }
 
 int
@@ -500,7 +517,7 @@ tui_config_editor(void)
 
         if (selected < config->host_count)
         {
-            tui_host_editor(config->hosts[selected]->name);
+            tui_host_editor_internal(config->hosts[selected]->name);
         }
         else if (selected == base + 0)
         {
