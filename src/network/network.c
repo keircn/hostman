@@ -446,6 +446,28 @@ network_upload_file(const char *file_path, host_config_t *host)
                 log_error("Failed to extract URL from response: %s", response_data.data);
             }
         }
+        else
+        {
+            free(response->error_message);
+            char error_buf[256];
+            snprintf(error_buf, sizeof(error_buf), "HTTP %ld", response->http_code);
+            if (response_data.data && response_data.size > 0)
+            {
+                char *msg = extract_json_string(response_data.data, "message");
+                if (!msg)
+                    msg = extract_json_string(response_data.data, "error");
+                if (!msg)
+                    msg = extract_json_string(response_data.data, "error.message");
+                if (msg)
+                {
+                    snprintf(
+                      error_buf, sizeof(error_buf), "HTTP %ld: %s", response->http_code, msg);
+                    free(msg);
+                }
+            }
+            response->error_message = strdup(error_buf);
+            log_error("Upload failed: %s", response->error_message);
+        }
 
         curl_easy_cleanup(curl);
         curl_mime_free(mime);
