@@ -262,7 +262,7 @@ hosts_add_interactive(void)
     char *file_form_field = read_input_default("File form field name", "file");
     char *response_url_json_path = read_input_default("JSON path to URL in response", "url");
     char *response_deletion_url_json_path =
-      read_input_default("JSON path to deletion URL in response", "deletion_url");
+      read_input_default("JSON path to deletion URL in response (leave blank if unsupported)", "");
     char **static_field_names = NULL;
     char **static_field_values = NULL;
     int static_field_count = 0;
