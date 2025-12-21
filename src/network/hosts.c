@@ -2,6 +2,7 @@
 #include "hostman/core/config.h"
 #include "hostman/core/logging.h"
 #include "hostman/crypto/encryption.h"
+#include <cjson/cJSON.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -935,4 +936,294 @@ config_edit_interactive(void)
     }
 
     return EXIT_SUCCESS;
+}
+
+int
+hosts_import_sxcu(const char *file_path)
+{
+    init_color();
+
+    if (!file_path)
+    {
+        print_error_msg("Error: No file path provided");
+        return EXIT_FAILURE;
+    }
+
+    FILE *fp = fopen(file_path, "r");
+    if (!fp)
+    {
+        print_error_msg("Error: Could not open file");
+        log_error("Failed to open SXCU file: %s", file_path);
+        return EXIT_FAILURE;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    long file_size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    if (file_size <= 0 || file_size > 1024 * 1024)
+    {
+        print_error_msg("Error: Invalid file size");
+        fclose(fp);
+        return EXIT_FAILURE;
+    }
+
+    char *json_content = malloc(file_size + 1);
+    if (!json_content)
+    {
+        print_error_msg("Error: Memory allocation failed");
+        fclose(fp);
+        return EXIT_FAILURE;
+    }
+
+    size_t bytes_read = fread(json_content, 1, file_size, fp);
+    fclose(fp);
+    json_content[bytes_read] = '\0';
+
+    cJSON *root = cJSON_Parse(json_content);
+    free(json_content);
+
+    if (!root)
+    {
+        print_error_msg("Error: Failed to parse JSON");
+        log_error("JSON parse error: %s", cJSON_GetErrorPtr());
+        return EXIT_FAILURE;
+    }
+
+    cJSON *name_json = cJSON_GetObjectItemCaseSensitive(root, "Name");
+    cJSON *request_url = cJSON_GetObjectItemCaseSensitive(root, "RequestURL");
+    cJSON *headers = cJSON_GetObjectItemCaseSensitive(root, "Headers");
+    cJSON *body = cJSON_GetObjectItemCaseSensitive(root, "Body");
+    cJSON *file_form_name = cJSON_GetObjectItemCaseSensitive(root, "FileFormName");
+    cJSON *url_path = cJSON_GetObjectItemCaseSensitive(root, "URL");
+    cJSON *deletion_url_path = cJSON_GetObjectItemCaseSensitive(root, "DeletionURL");
+
+    if (!cJSON_IsString(request_url) || !request_url->valuestring)
+    {
+        print_error_msg("Error: Missing or invalid RequestURL in SXCU file");
+        cJSON_Delete(root);
+        return EXIT_FAILURE;
+    }
+
+    char *name = NULL;
+    if (cJSON_IsString(name_json) && name_json->valuestring)
+    {
+        name = strdup(name_json->valuestring);
+    }
+    else
+    {
+        name = read_input("Host name (unique identifier): ", true);
+    }
+
+    if (!name)
+    {
+        print_error_msg("Error: Host name is required");
+        cJSON_Delete(root);
+        return EXIT_FAILURE;
+    }
+
+    host_config_t *existing = config_get_host(name);
+    if (existing)
+    {
+        char msg[256];
+        snprintf(msg, sizeof(msg), "Error: A host with name '%s' already exists", name);
+        print_error_msg(msg);
+        free(name);
+        cJSON_Delete(root);
+        return EXIT_FAILURE;
+    }
+
+    char *api_endpoint = strdup(request_url->valuestring);
+
+    char *auth_type = strdup("none");
+    char *api_key_name = NULL;
+    char *api_key = NULL;
+
+    if (cJSON_IsObject(headers))
+    {
+        cJSON *auth_header = cJSON_GetObjectItemCaseSensitive(headers, "Authorization");
+        if (cJSON_IsString(auth_header) && auth_header->valuestring)
+        {
+            const char *auth_value = auth_header->valuestring;
+
+            if (strncasecmp(auth_value, "Bearer ", 7) == 0)
+            {
+                free(auth_type);
+                auth_type = strdup("bearer");
+                api_key_name = strdup("Authorization");
+                api_key = strdup(auth_value + 7);
+            }
+            else
+            {
+                free(auth_type);
+                auth_type = strdup("header");
+                api_key_name = strdup("Authorization");
+                api_key = strdup(auth_value);
+            }
+        }
+        else
+        {
+            cJSON *header_item = NULL;
+            cJSON_ArrayForEach(header_item, headers)
+            {
+                if (cJSON_IsString(header_item) && header_item->valuestring)
+                {
+                    free(auth_type);
+                    auth_type = strdup("header");
+                    api_key_name = strdup(header_item->string);
+                    api_key = strdup(header_item->valuestring);
+                    break;
+                }
+            }
+        }
+    }
+
+    char *request_body_format = strdup("multipart");
+    if (cJSON_IsString(body) && body->valuestring)
+    {
+        if (strcasecmp(body->valuestring, "MultipartFormData") == 0)
+        {
+            free(request_body_format);
+            request_body_format = strdup("multipart");
+        }
+        else if (strcasecmp(body->valuestring, "JSON") == 0)
+        {
+            free(request_body_format);
+            request_body_format = strdup("json");
+        }
+        else if (strcasecmp(body->valuestring, "Binary") == 0)
+        {
+            free(request_body_format);
+            request_body_format = strdup("binary");
+        }
+    }
+
+    char *file_field = strdup("file");
+    if (cJSON_IsString(file_form_name) && file_form_name->valuestring)
+    {
+        free(file_field);
+        file_field = strdup(file_form_name->valuestring);
+    }
+
+    char *response_url_path = strdup("url");
+    if (cJSON_IsString(url_path) && url_path->valuestring)
+    {
+        const char *path = url_path->valuestring;
+        if (strncmp(path, "{json:", 6) == 0)
+        {
+            const char *start = path + 6;
+            const char *end = strchr(start, '}');
+            if (end)
+            {
+                size_t len = end - start;
+                free(response_url_path);
+                response_url_path = malloc(len + 1);
+                strncpy(response_url_path, start, len);
+                response_url_path[len] = '\0';
+            }
+        }
+    }
+
+    char *response_deletion_path = strdup("");
+    if (cJSON_IsString(deletion_url_path) && deletion_url_path->valuestring)
+    {
+        const char *path = deletion_url_path->valuestring;
+        if (strncmp(path, "{json:", 6) == 0)
+        {
+            const char *start = path + 6;
+            const char *end = strchr(start, '}');
+            if (end)
+            {
+                size_t len = end - start;
+                free(response_deletion_path);
+                response_deletion_path = malloc(len + 1);
+                strncpy(response_deletion_path, start, len);
+                response_deletion_path[len] = '\0';
+            }
+        }
+    }
+
+    cJSON_Delete(root);
+
+    printf("\nImporting host configuration:\n");
+    print_current_value("Name:", name);
+    print_current_value("API Endpoint:", api_endpoint);
+    print_current_value("Auth Type:", auth_type);
+    print_current_value("API Key Header:", api_key_name);
+    print_current_value("Request Body Format:", request_body_format);
+    print_current_value("File Form Field:", file_field);
+    print_current_value("Response URL Path:", response_url_path);
+    print_current_value("Deletion URL Path:", response_deletion_path);
+
+    printf("\nProceed with import? [Y/n]: ");
+    fflush(stdout);
+    char yn_buffer[10];
+    if (fgets(yn_buffer, sizeof(yn_buffer), stdin) != NULL)
+    {
+        yn_buffer[strcspn(yn_buffer, "\n")] = 0;
+        if (strcasecmp(yn_buffer, "n") == 0 || strcasecmp(yn_buffer, "no") == 0)
+        {
+            print_error_msg("Import cancelled.");
+            free(name);
+            free(api_endpoint);
+            free(auth_type);
+            free(api_key_name);
+            free(api_key);
+            free(request_body_format);
+            free(file_field);
+            free(response_url_path);
+            free(response_deletion_path);
+            return EXIT_SUCCESS;
+        }
+    }
+
+    bool result = hosts_add(name,
+                            api_endpoint,
+                            auth_type,
+                            api_key_name,
+                            api_key,
+                            request_body_format,
+                            file_field,
+                            response_url_path,
+                            response_deletion_path,
+                            NULL,
+                            NULL,
+                            0);
+
+    hostman_config_t *config = config_load();
+    if (result && config && (!config->default_host || config->host_count == 1))
+    {
+        printf("Set this host as the default? [Y/n]: ");
+        fflush(stdout);
+        if (fgets(yn_buffer, sizeof(yn_buffer), stdin) != NULL)
+        {
+            yn_buffer[strcspn(yn_buffer, "\n")] = 0;
+            if (strcasecmp(yn_buffer, "n") != 0 && strcasecmp(yn_buffer, "no") != 0)
+            {
+                config_set_default_host(name);
+                printf("Host '%s' set as default.\n", name);
+            }
+        }
+    }
+
+    free(name);
+    free(api_endpoint);
+    free(auth_type);
+    free(api_key_name);
+    free(api_key);
+    free(request_body_format);
+    free(file_field);
+    free(response_url_path);
+    free(response_deletion_path);
+
+    if (result)
+    {
+        print_success_msg("Host imported successfully from SXCU file!");
+        return EXIT_SUCCESS;
+    }
+    else
+    {
+        print_error_msg("Error: Failed to import host configuration");
+        return EXIT_FAILURE;
+    }
 }

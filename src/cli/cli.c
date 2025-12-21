@@ -147,6 +147,8 @@ print_command_help(const char *command)
           printf("   Delete a file from the remote host\n");
         print_command_syntax("list-hosts", ""), printf("   List configured hosts\n");
         print_command_syntax("add-host", ""), printf("   Add a new host configuration\n");
+        print_command_syntax("import-host", "<sxcu_file>"),
+          printf("   Import host from ShareX SXCU file\n");
         print_command_syntax("remove-host", "<name>"), printf("   Remove a host configuration\n");
         print_command_syntax("set-default-host", "<name>"), printf("   Set the default host\n");
         print_command_syntax("config", "<get|set> <key> [value]"),
@@ -246,6 +248,27 @@ print_command_help(const char *command)
 
         print_section_header("OPTIONS");
         print_option("--help", "Show this help message");
+        return;
+    }
+
+    if (strcmp(command, "import-host") == 0)
+    {
+        print_section_header("IMPORT-HOST");
+        printf("Import a host configuration from a ShareX SXCU file\n\n");
+
+        print_section_header("USAGE");
+        printf("  hostman import-host <sxcu_file>\n\n");
+
+        print_section_header("OPTIONS");
+        print_option("--help", "Show this help message");
+
+        print_section_header("DESCRIPTION");
+        printf("  Imports host configuration from a ShareX Custom Uploader (.sxcu) file.\n");
+        printf("  The SXCU file is a JSON format that defines upload endpoints.\n\n");
+
+        print_section_header("EXAMPLES");
+        printf("  hostman import-host myhost.sxcu\n");
+        printf("  hostman import-host ~/Downloads/uploader.sxcu\n");
         return;
     }
 
@@ -467,6 +490,10 @@ parse_args(int argc, char *argv[])
     {
         args.type = CMD_ADD_HOST;
     }
+    else if (strcmp(argv[cmd_index], "import-host") == 0)
+    {
+        args.type = CMD_IMPORT_HOST;
+    }
     else if (strcmp(argv[cmd_index], "remove-host") == 0)
     {
         args.type = CMD_REMOVE_HOST;
@@ -663,6 +690,20 @@ parse_args(int argc, char *argv[])
 
         case CMD_ADD_HOST:
         {
+            break;
+        }
+
+        case CMD_IMPORT_HOST:
+        {
+            if (cmd_index + 1 < argc)
+            {
+                args.import_file = strdup(argv[cmd_index + 1]);
+            }
+            else
+            {
+                print_error("Error: SXCU file path required\n");
+                args.type = CMD_UNKNOWN;
+            }
             break;
         }
 
@@ -1195,6 +1236,16 @@ execute_command(command_args_t *args)
             return hosts_add_interactive();
         }
 
+        case CMD_IMPORT_HOST:
+        {
+            if (!args->import_file)
+            {
+                print_error("Error: SXCU file path required\n");
+                return EXIT_INVALID_ARGS;
+            }
+            return hosts_import_sxcu(args->import_file);
+        }
+
         case CMD_REMOVE_HOST:
         {
             if (!args->host_name)
@@ -1643,5 +1694,6 @@ free_command_args(command_args_t *args)
         free(args->config_key);
         free(args->config_value);
         free(args->command_name);
+        free(args->import_file);
     }
 }

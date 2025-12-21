@@ -27,4 +27,7 @@ hosts_add(const char *name,
           char **static_field_values,
           int static_field_count);
 
+int
+hosts_import_sxcu(const char *file_path);
+
 #endif
