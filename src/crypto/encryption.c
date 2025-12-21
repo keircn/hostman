@@ -15,8 +15,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-// This isnt all that secure but i honestly dont care, its an API key stored in your ~
-
 #define KEY_SIZE 32
 #define IV_SIZE 16
 

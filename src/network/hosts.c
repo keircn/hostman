@@ -409,19 +409,11 @@ hosts_add(const char *name,
         return false;
     }
 
-    char *encrypted_key = NULL;
     if (strcmp(auth_type, "none") != 0)
     {
         if (!api_key_name || !api_key)
         {
             log_error("Missing required authentication fields");
-            return false;
-        }
-
-        encrypted_key = encryption_encrypt_api_key(api_key);
-        if (!encrypted_key)
-        {
-            log_error("Failed to encrypt API key");
             return false;
         }
     }
@@ -430,7 +422,6 @@ hosts_add(const char *name,
     if (!host)
     {
         log_error("Failed to allocate memory for host configuration");
-        free(encrypted_key);
         return false;
     }
 
@@ -439,7 +430,7 @@ hosts_add(const char *name,
     host->auth_type = strdup(auth_type);
     host->api_key_name =
       (api_key_name && strcmp(auth_type, "none") != 0) ? strdup(api_key_name) : NULL;
-    host->api_key_encrypted = encrypted_key;
+    host->api_key = (api_key && strcmp(auth_type, "none") != 0) ? strdup(api_key) : NULL;
     host->request_body_format = strdup(request_body_format);
     host->file_form_field = strdup(file_form_field);
     host->response_url_json_path = strdup(response_url_json_path);
@@ -458,7 +449,7 @@ hosts_add(const char *name,
             free(host->api_endpoint);
             free(host->auth_type);
             free(host->api_key_name);
-            free(host->api_key_encrypted);
+            free(host->api_key);
             free(host->request_body_format);
             free(host->file_form_field);
             free(host->response_url_json_path);
@@ -484,7 +475,7 @@ hosts_add(const char *name,
         free(host->api_endpoint);
         free(host->auth_type);
         free(host->api_key_name);
-        free(host->api_key_encrypted);
+        free(host->api_key);
         free(host->request_body_format);
         free(host->file_form_field);
         free(host->response_url_json_path);
@@ -531,7 +522,7 @@ host_edit_interactive(const char *host_name)
         print_current_value("API Endpoint:", host->api_endpoint);
         print_current_value("Auth Type:", host->auth_type);
         print_current_value("API Key Header:", host->api_key_name);
-        print_current_value("API Key:", host->api_key_encrypted ? "********" : "(not set)");
+        print_current_value("API Key:", host->api_key ? "********" : "(not set)");
         print_current_value("Request Body Format:", host->request_body_format);
         print_current_value("File Form Field:", host->file_form_field);
         print_current_value("Response URL Path:", host->response_url_json_path);
@@ -625,18 +616,10 @@ host_edit_interactive(const char *host_name)
                     input[strcspn(input, "\n")] = 0;
                     if (strlen(input) > 0)
                     {
-                        char *encrypted = encryption_encrypt_api_key(input);
-                        if (encrypted)
-                        {
-                            free(host->api_key_encrypted);
-                            host->api_key_encrypted = encrypted;
-                            modified = true;
-                            print_success_msg("API Key updated.");
-                        }
-                        else
-                        {
-                            print_error_msg("Failed to encrypt API key");
-                        }
+                        free(host->api_key);
+                        host->api_key = strdup(input);
+                        modified = true;
+                        print_success_msg("API Key updated.");
                     }
                 }
                 break;

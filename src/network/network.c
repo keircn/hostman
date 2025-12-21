@@ -308,24 +308,22 @@ network_upload_file(const char *file_path, host_config_t *host)
         }
         else if (strcmp(host->auth_type, "bearer") == 0)
         {
-            char *api_key = encryption_decrypt_api_key(host->api_key_encrypted);
+            char *api_key = host->api_key;
             if (api_key)
             {
                 if (!host->api_key_name || strlen(host->api_key_name) == 0)
                 {
                     response->error_message = strdup("API key name is empty or NULL");
-                    free(api_key);
                     curl_easy_cleanup(curl);
                     curl_mime_free(mime);
                     return response;
                 }
 
-                size_t header_len = strlen(host->api_key_name) + strlen(api_key) + 9;
+                size_t header_len = strlen(host->api_key_name) + strlen(api_key) + 10;
                 char *auth_header = malloc(header_len);
                 if (!auth_header)
                 {
                     response->error_message = strdup("Failed to allocate memory for auth header");
-                    free(api_key);
                     curl_easy_cleanup(curl);
                     curl_mime_free(mime);
                     return response;
@@ -334,11 +332,10 @@ network_upload_file(const char *file_path, host_config_t *host)
                 snprintf(auth_header, header_len, "%s: Bearer %s", host->api_key_name, api_key);
                 headers = curl_slist_append(headers, auth_header);
                 free(auth_header);
-                free(api_key);
             }
             else
             {
-                response->error_message = strdup("Failed to decrypt API key");
+                response->error_message = strdup("API key not set");
                 curl_easy_cleanup(curl);
                 curl_mime_free(mime);
                 return response;
@@ -346,13 +343,12 @@ network_upload_file(const char *file_path, host_config_t *host)
         }
         else if (strcmp(host->auth_type, "header") == 0)
         {
-            char *api_key = encryption_decrypt_api_key(host->api_key_encrypted);
+            char *api_key = host->api_key;
             if (api_key)
             {
                 if (!host->api_key_name || strlen(host->api_key_name) == 0)
                 {
                     response->error_message = strdup("API key name is empty or NULL");
-                    free(api_key);
                     curl_easy_cleanup(curl);
                     curl_mime_free(mime);
                     return response;
@@ -363,7 +359,6 @@ network_upload_file(const char *file_path, host_config_t *host)
                 if (!auth_header)
                 {
                     response->error_message = strdup("Failed to allocate memory for auth header");
-                    free(api_key);
                     curl_easy_cleanup(curl);
                     curl_mime_free(mime);
                     return response;
@@ -372,11 +367,10 @@ network_upload_file(const char *file_path, host_config_t *host)
                 snprintf(auth_header, header_len, "%s: %s", host->api_key_name, api_key);
                 headers = curl_slist_append(headers, auth_header);
                 free(auth_header);
-                free(api_key);
             }
             else
             {
-                response->error_message = strdup("Failed to decrypt API key");
+                response->error_message = strdup("API key not set");
                 curl_easy_cleanup(curl);
                 curl_mime_free(mime);
                 return response;

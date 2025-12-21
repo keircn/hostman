@@ -251,7 +251,7 @@ tui_draw_host_config(host_config_t *host, int selected)
         host->api_endpoint ? host->api_endpoint : "(not set)",
         host->auth_type ? host->auth_type : "(not set)",
         host->api_key_name ? host->api_key_name : "(not set)",
-        host->api_key_encrypted ? "********" : "(not set)",
+        host->api_key ? "********" : "(not set)",
         host->file_form_field ? host->file_form_field : "(not set)",
         host->response_url_json_path ? host->response_url_json_path : "(not set)",
         host->response_deletion_url_json_path ? host->response_deletion_url_json_path : "(not set)",
@@ -379,14 +379,9 @@ tui_host_editor_internal(const char *host_name)
                             new_val = tui_input_dialog("API Key", "Enter new API key:", NULL);
                             if (new_val && strlen(new_val) > 0)
                             {
-                                char *encrypted = encryption_encrypt_api_key(new_val);
-                                if (encrypted)
-                                {
-                                    free(host->api_key_encrypted);
-                                    host->api_key_encrypted = encrypted;
-                                    modified = true;
-                                }
-                                free(new_val);
+                                free(host->api_key);
+                                host->api_key = new_val;
+                                modified = true;
                             }
                             else
                             {

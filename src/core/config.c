@@ -86,13 +86,13 @@ parse_host_config(cJSON *host_json, const char *name)
         }
     }
 
-    cJSON *api_key_encrypted = cJSON_GetObjectItem(host_json, "api_key_encrypted");
-    if (api_key_encrypted && cJSON_IsString(api_key_encrypted))
+    cJSON *api_key_json = cJSON_GetObjectItem(host_json, "api_key");
+    if (api_key_json && cJSON_IsString(api_key_json))
     {
-        const char *key_enc = cJSON_GetStringValue(api_key_encrypted);
-        if (key_enc && strlen(key_enc) > 0 && strlen(key_enc) < 4096)
+        const char *key = cJSON_GetStringValue(api_key_json);
+        if (key && strlen(key) > 0 && strlen(key) < 4096)
         {
-            host->api_key_encrypted = strdup(key_enc);
+            host->api_key = strdup(key);
         }
     }
 
@@ -289,9 +289,9 @@ host_config_to_json(host_config_t *host)
         cJSON_AddStringToObject(json, "api_key_name", host->api_key_name);
     }
 
-    if (host->api_key_encrypted)
+    if (host->api_key)
     {
-        cJSON_AddStringToObject(json, "api_key_encrypted", host->api_key_encrypted);
+        cJSON_AddStringToObject(json, "api_key", host->api_key);
     }
 
     if (host->request_body_format)
@@ -924,7 +924,7 @@ config_remove_host(const char *host_name)
             free(config->hosts[i]->api_endpoint);
             free(config->hosts[i]->auth_type);
             free(config->hosts[i]->api_key_name);
-            free(config->hosts[i]->api_key_encrypted);
+            free(config->hosts[i]->api_key);
             free(config->hosts[i]->request_body_format);
             free(config->hosts[i]->file_form_field);
             free(config->hosts[i]->response_url_json_path);
@@ -1075,7 +1075,7 @@ config_free(hostman_config_t *config)
             free(config->hosts[i]->api_endpoint);
             free(config->hosts[i]->auth_type);
             free(config->hosts[i]->api_key_name);
-            free(config->hosts[i]->api_key_encrypted);
+            free(config->hosts[i]->api_key);
             free(config->hosts[i]->request_body_format);
             free(config->hosts[i]->file_form_field);
             free(config->hosts[i]->response_url_json_path);

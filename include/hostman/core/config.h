@@ -9,7 +9,7 @@ typedef struct
     char *api_endpoint;
     char *auth_type;
     char *api_key_name;
-    char *api_key_encrypted;
+    char *api_key;
     char *request_body_format;
     char *file_form_field;
     char *response_url_json_path;
