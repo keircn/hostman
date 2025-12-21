@@ -1,10 +1,10 @@
 #ifndef HOSTMAN_UTILS_H
 #define HOSTMAN_UTILS_H
 
+#include "hostman/core/version.h"
 #include <stdbool.h>
 #include <stddef.h>
 
-#define HOSTMAN_VERSION "1.1.3"
 #define HOSTMAN_BUILD_DATE __DATE__
 #define HOSTMAN_BUILD_TIME __TIME__
 #define HOSTMAN_AUTHOR "Keiran"

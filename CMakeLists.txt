@@ -4,6 +4,12 @@ project(hostman VERSION 1.2.1 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/hostman/core/version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/include/hostman/core/version.h
+    @ONLY
+)
+
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wall -Wextra -Wpedantic -Werror=return-type)
 endif()
@@ -56,6 +62,7 @@ set(HOSTMAN_SOURCES
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_BINARY_DIR}/include
     ${CURL_INCLUDE_DIRS}
     ${SQLITE3_INCLUDE_DIRS}
     ${JSON_INCLUDE_DIR}
