@@ -2,32 +2,26 @@
 
 Hostman is a robust, cross-platform command-line application for uploading files (primarily images) to various hosting services.
 
-## Features
-
-- Upload files to multiple configurable hosting services
-- Manage hosting service configurations
-- Track upload history using SQLite
-- Support for file deletion via host-provided deletion URLs
-- Visual progress bar during uploads
-
 ## Installation
 
 ### Build-time dependencies
 
 - C compiler (GCC or Clang)
 - CMake
+
+### Runtime dependencies
+
 - libcurl
 - cJSON
 - SQLite3
+- OpenSSL
 
 ### Building from Source
 
 ```bash
 git clone https://github.com/Bestire/hostman && cd hostman
-cmake --build build
-
-# Install (optional)
-cd build && sudo make install
+cmake -B build -DHOSTMAN_USE_TUI=ON && cmake --build build
+sudo cmake --install build  # optional, installs the binary to /usr/local/bin
 ```
 
 ## Usage
@@ -36,11 +30,18 @@ cd build && sudo make install
 
 When running Hostman for the first time, it will guide you through setting up your first host configuration.
 
-Basic Commands
+### Basic Commands
 
 ```bash
 # Upload a file using the default host
 hostman upload path/to/file.png
+
+# Upload multiple files at once
+hostman upload file1.png file2.jpg file3.gif
+
+# Upload all files from a directory
+hostman upload --directory ./screenshots/
+hostman upload -d ./images/ --continue-on-error
 
 # List all configured hosts
 hostman list-hosts
@@ -49,13 +50,13 @@ hostman list-hosts
 hostman add-host
 
 # Upload with a specific host
-hostman upload --host nest.rip path/to/file.png
+hostman upload --host myhost path/to/file.png
 
 # Remove a host
-hostman remove-host nest.rip
+hostman remove-host myhost
 
 # Set default host
-hostman set-default-host nest.rip
+hostman set-default-host myhost
 
 # View upload history
 hostman list-uploads
@@ -69,7 +70,10 @@ hostman delete-upload <id>
 # Delete a file from the remote host (if deletion URL is available)
 hostman delete-file <id>
 
-# View/modify configuration
+# Interactive configuration editor (TUI)
+hostman config
+
+# View/modify configuration via CLI
 hostman config get log_level
 hostman config set log_level DEBUG
 ```
@@ -81,13 +85,13 @@ Hostman uses a JSON configuration file located at `$HOME/.config/hostman/config.
 ```json
 {
   "version": 1,
-  "default_host": "nest.rip",
+  "default_host": "myhost",
   "log_level": "INFO",
   "log_file": "/path/to/log/file.log",
   "hosts": {
-    "anonhost_personal": {
-      "api_endpoint": "https://nest.rip/api/files",
-      "auth_type": "bearer",
+    "myhost": {
+      "api_endpoint": "https://example.com/api/upload",
+      "auth_type": "header",
       "api_key_name": "Authorization",
       "api_key_encrypted": "...",
       "request_body_format": "multipart",
@@ -95,8 +99,8 @@ Hostman uses a JSON configuration file located at `$HOME/.config/hostman/config.
       "static_form_fields": {
         "folder": "hostman"
       },
-      "response_url_json_path": "fileURL",
-      "response_deletion_url_json_path": "deletionURL"
+      "response_url_json_path": "url",
+      "response_deletion_url_json_path": "deletionUrl"
     }
   }
 }
@@ -104,30 +108,31 @@ Hostman uses a JSON configuration file located at `$HOME/.config/hostman/config.
 
 ## File Deletion Support
 
-Hostman now supports deletion of files from hosting services that provide deletion URLs in their upload responses. When configuring a host, you can specify the JSON path to the deletion URL in the response using the `response_deletion_url_json_path` field.
+Hostman supports deletion of files from hosting services that provide deletion URLs in their upload responses. Not all hosts support this feature.
+
+When configuring a host, you can specify the JSON path to the deletion URL in the response using the `response_deletion_url_json_path` field. Leave this blank if the host doesn't support file deletion.
 
 For example, if your hosting service returns:
 
 ```json
 {
   "success": true,
-  "message": "File Uploaded",
-  "fileUrl": "https://example.com/xyz123.png",
-  "deletionUrl": "https://example.com/delete?key=random-deletion-key"
+  "url": "https://example.com/xyz123.png",
+  "deletionUrl": "https://example.com/delete?key=abc123"
 }
 ```
 
 You would set:
 
 ```
-response_url_json_path: "fileUrl"
-response_deletion_url_json_path: "deletionUrl"
+response_url_json_path: url
+response_deletion_url_json_path: deletionUrl
 ```
 
 When you upload a file to a host with deletion URL support:
 
 1. The deletion URL will be displayed and stored in the database
-2. In the upload history, records with deletion URLs are marked with [ID: X]
+2. In the upload history, records with deletion URLs are marked with `[D]`
 3. You can use `hostman delete-file <id>` to delete the file from the remote host
 
 ## License
