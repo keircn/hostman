@@ -8,7 +8,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wall -Wextra -Wpedantic -Werror=return-type)
 endif()
 
-option(HOSTMAN_USE_TUI "Build with TUI support (requires ncurses)" OFF)
+option(HOSTMAN_USE_TUI "Build with TUI support (requires ncurses)" ON)
 
 find_package(CURL REQUIRED)
 find_package(SQLite3 REQUIRED)
@@ -32,7 +32,8 @@ set(HOSTMAN_CORE_SOURCES
     src/core/utils.c)
 
 set(HOSTMAN_CLI_SOURCES
-    src/cli/cli.c)
+    src/cli/cli.c
+    src/cli/tui.c)
 
 set(HOSTMAN_NETWORK_SOURCES
     src/network/network.c

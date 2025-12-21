@@ -1,4 +1,5 @@
 #include "hostman/cli/cli.h"
+#include "hostman/cli/tui.h"
 #include "hostman/core/config.h"
 #include "hostman/core/logging.h"
 #include "hostman/core/utils.h"
@@ -280,14 +281,24 @@ print_command_help(const char *command)
         printf("View or modify configuration settings\n\n");
 
         print_section_header("USAGE");
-        printf("  hostman config <get|set> <key> [value] [options]\n\n");
+        printf("  hostman config                     Interactive configuration editor\n");
+        printf("  hostman config get <key>           Get a configuration value\n");
+        printf("  hostman config set <key> <value>   Set a configuration value\n\n");
 
         print_section_header("OPTIONS");
         print_option("--help", "Show this help message");
 
+        print_section_header("KEYS");
+        print_option("log_level", "Log level (DEBUG, INFO, WARN, ERROR)");
+        print_option("log_file", "Path to log file");
+        print_option("default_host", "Default host for uploads");
+        print_option("hosts.<name>.<prop>", "Host-specific settings");
+
         print_section_header("EXAMPLES");
+        printf("  hostman config\n");
         printf("  hostman config get log_level\n");
         printf("  hostman config set log_level DEBUG\n");
+        printf("  hostman config get hosts.myhost.api_endpoint\n");
         return;
     }
 
@@ -731,11 +742,6 @@ parse_args(int argc, char *argv[])
                     print_error("Error: 'config' requires 'get' or 'set' subcommand\n");
                     args.type = CMD_UNKNOWN;
                 }
-            }
-            else
-            {
-                print_error("Error: 'config' requires 'get' or 'set' subcommand\n");
-                args.type = CMD_UNKNOWN;
             }
             break;
         }
@@ -1231,7 +1237,18 @@ execute_command(command_args_t *args)
 
         case CMD_CONFIG:
         {
-            if (args->config_get)
+            if (!args->config_key)
+            {
+                if (tui_available())
+                {
+                    return tui_config_editor();
+                }
+                else
+                {
+                    return config_edit_interactive();
+                }
+            }
+            else if (args->config_get)
             {
                 char *value = config_get_value(args->config_key);
                 if (value)

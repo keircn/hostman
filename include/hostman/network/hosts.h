@@ -7,6 +7,12 @@
 int
 hosts_add_interactive(void);
 
+int
+config_edit_interactive(void);
+
+int
+host_edit_interactive(const char *host_name);
+
 bool
 hosts_add(const char *name,
           const char *api_endpoint,

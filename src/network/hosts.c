@@ -2,12 +2,104 @@
 #include "hostman/core/config.h"
 #include "hostman/core/logging.h"
 #include "hostman/crypto/encryption.h"
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #define MAX_INPUT_LENGTH 512
+
+static bool use_color = true;
+
+static void
+init_color(void)
+{
+    if (getenv("NO_COLOR") != NULL)
+    {
+        use_color = false;
+    }
+}
+
+static void
+print_menu_header(const char *text)
+{
+    init_color();
+    if (use_color)
+    {
+        printf("\n\033[1;36m=== %s ===\033[0m\n\n", text);
+    }
+    else
+    {
+        printf("\n=== %s ===\n\n", text);
+    }
+}
+
+static void
+print_menu_option(int num, const char *text)
+{
+    if (use_color)
+    {
+        printf("  \033[1;33m%d.\033[0m %s\n", num, text);
+    }
+    else
+    {
+        printf("  %d. %s\n", num, text);
+    }
+}
+
+static void
+print_menu_option_str(const char *key, const char *text)
+{
+    if (use_color)
+    {
+        printf("  \033[1;33m%s.\033[0m %s\n", key, text);
+    }
+    else
+    {
+        printf("  %s. %s\n", key, text);
+    }
+}
+
+static void
+print_current_value(const char *label, const char *value)
+{
+    if (use_color)
+    {
+        printf(
+          "  \033[0;37m%-30s\033[0m \033[1;32m%s\033[0m\n", label, value ? value : "(not set)");
+    }
+    else
+    {
+        printf("  %-30s %s\n", label, value ? value : "(not set)");
+    }
+}
+
+static void
+print_success_msg(const char *text)
+{
+    if (use_color)
+    {
+        printf("\033[1;32m%s\033[0m\n", text);
+    }
+    else
+    {
+        printf("%s\n", text);
+    }
+}
+
+static void
+print_error_msg(const char *text)
+{
+    if (use_color)
+    {
+        fprintf(stderr, "\033[1;31m%s\033[0m\n", text);
+    }
+    else
+    {
+        fprintf(stderr, "%s\n", text);
+    }
+}
 
 static char *
 read_input(const char *prompt, bool required)
@@ -408,4 +500,439 @@ hosts_add(const char *name,
     }
 
     return result;
+}
+
+int
+host_edit_interactive(const char *host_name)
+{
+    hostman_config_t *config = config_load();
+    if (!config)
+    {
+        print_error_msg("Error: Failed to load configuration");
+        return EXIT_FAILURE;
+    }
+
+    host_config_t *host = config_get_host(host_name);
+    if (!host)
+    {
+        print_error_msg("Error: Host not found");
+        return EXIT_FAILURE;
+    }
+
+    char buffer[MAX_INPUT_LENGTH];
+    bool modified = false;
+
+    while (1)
+    {
+        print_menu_header(host->name);
+
+        printf("Current configuration:\n\n");
+        print_current_value("API Endpoint:", host->api_endpoint);
+        print_current_value("Auth Type:", host->auth_type);
+        print_current_value("API Key Header:", host->api_key_name);
+        print_current_value("API Key:", host->api_key_encrypted ? "********" : "(not set)");
+        print_current_value("Request Body Format:", host->request_body_format);
+        print_current_value("File Form Field:", host->file_form_field);
+        print_current_value("Response URL Path:", host->response_url_json_path);
+        print_current_value("Deletion URL Path:", host->response_deletion_url_json_path);
+
+        printf("\nOptions:\n");
+        print_menu_option(1, "Edit API Endpoint");
+        print_menu_option(2, "Edit Auth Type");
+        print_menu_option(3, "Edit API Key Header Name");
+        print_menu_option(4, "Update API Key");
+        print_menu_option(5, "Edit File Form Field");
+        print_menu_option(6, "Edit Response URL JSON Path");
+        print_menu_option(7, "Edit Deletion URL JSON Path");
+        print_menu_option_str("b", "Back to main menu");
+
+        printf("\nSelect option: ");
+        fflush(stdout);
+
+        if (fgets(buffer, sizeof(buffer), stdin) == NULL)
+            break;
+        buffer[strcspn(buffer, "\n")] = 0;
+
+        if (strcmp(buffer, "b") == 0 || strcmp(buffer, "B") == 0)
+            break;
+
+        int choice = atoi(buffer);
+        char input[MAX_INPUT_LENGTH];
+
+        switch (choice)
+        {
+            case 1:
+                printf("New API Endpoint [%s]: ", host->api_endpoint ? host->api_endpoint : "");
+                if (fgets(input, sizeof(input), stdin) != NULL)
+                {
+                    input[strcspn(input, "\n")] = 0;
+                    if (strlen(input) > 0)
+                    {
+                        free(host->api_endpoint);
+                        host->api_endpoint = strdup(input);
+                        modified = true;
+                        print_success_msg("API Endpoint updated.");
+                    }
+                }
+                break;
+
+            case 2:
+                printf("Auth types: none, bearer, header\n");
+                printf("New Auth Type [%s]: ", host->auth_type ? host->auth_type : "");
+                if (fgets(input, sizeof(input), stdin) != NULL)
+                {
+                    input[strcspn(input, "\n")] = 0;
+                    if (strlen(input) > 0)
+                    {
+                        if (strcmp(input, "none") == 0 || strcmp(input, "bearer") == 0 ||
+                            strcmp(input, "header") == 0)
+                        {
+                            free(host->auth_type);
+                            host->auth_type = strdup(input);
+                            modified = true;
+                            print_success_msg("Auth Type updated.");
+                        }
+                        else
+                        {
+                            print_error_msg("Invalid auth type. Use: none, bearer, or header");
+                        }
+                    }
+                }
+                break;
+
+            case 3:
+                printf("New API Key Header Name [%s]: ",
+                       host->api_key_name ? host->api_key_name : "");
+                if (fgets(input, sizeof(input), stdin) != NULL)
+                {
+                    input[strcspn(input, "\n")] = 0;
+                    if (strlen(input) > 0)
+                    {
+                        free(host->api_key_name);
+                        host->api_key_name = strdup(input);
+                        modified = true;
+                        print_success_msg("API Key Header Name updated.");
+                    }
+                }
+                break;
+
+            case 4:
+                printf("New API Key (input hidden): ");
+                fflush(stdout);
+                if (fgets(input, sizeof(input), stdin) != NULL)
+                {
+                    input[strcspn(input, "\n")] = 0;
+                    if (strlen(input) > 0)
+                    {
+                        char *encrypted = encryption_encrypt_api_key(input);
+                        if (encrypted)
+                        {
+                            free(host->api_key_encrypted);
+                            host->api_key_encrypted = encrypted;
+                            modified = true;
+                            print_success_msg("API Key updated.");
+                        }
+                        else
+                        {
+                            print_error_msg("Failed to encrypt API key");
+                        }
+                    }
+                }
+                break;
+
+            case 5:
+                printf("New File Form Field [%s]: ",
+                       host->file_form_field ? host->file_form_field : "");
+                if (fgets(input, sizeof(input), stdin) != NULL)
+                {
+                    input[strcspn(input, "\n")] = 0;
+                    if (strlen(input) > 0)
+                    {
+                        free(host->file_form_field);
+                        host->file_form_field = strdup(input);
+                        modified = true;
+                        print_success_msg("File Form Field updated.");
+                    }
+                }
+                break;
+
+            case 6:
+                printf("New Response URL JSON Path [%s]: ",
+                       host->response_url_json_path ? host->response_url_json_path : "");
+                if (fgets(input, sizeof(input), stdin) != NULL)
+                {
+                    input[strcspn(input, "\n")] = 0;
+                    if (strlen(input) > 0)
+                    {
+                        free(host->response_url_json_path);
+                        host->response_url_json_path = strdup(input);
+                        modified = true;
+                        print_success_msg("Response URL JSON Path updated.");
+                    }
+                }
+                break;
+
+            case 7:
+                printf("New Deletion URL JSON Path [%s]: ",
+                       host->response_deletion_url_json_path ? host->response_deletion_url_json_path
+                                                             : "");
+                if (fgets(input, sizeof(input), stdin) != NULL)
+                {
+                    input[strcspn(input, "\n")] = 0;
+                    if (strlen(input) > 0)
+                    {
+                        free(host->response_deletion_url_json_path);
+                        host->response_deletion_url_json_path = strdup(input);
+                        modified = true;
+                        print_success_msg("Deletion URL JSON Path updated.");
+                    }
+                }
+                break;
+
+            default:
+                print_error_msg("Invalid option");
+                break;
+        }
+    }
+
+    if (modified)
+    {
+        if (config_save(config))
+        {
+            print_success_msg("Configuration saved.");
+        }
+        else
+        {
+            print_error_msg("Failed to save configuration.");
+            return EXIT_FAILURE;
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
+
+int
+config_edit_interactive(void)
+{
+    char buffer[MAX_INPUT_LENGTH];
+
+    while (1)
+    {
+        hostman_config_t *config = config_load();
+        if (!config)
+        {
+            print_error_msg("Error: Failed to load configuration. Run 'hostman add-host' first.");
+            return EXIT_FAILURE;
+        }
+
+        print_menu_header("Configuration Editor");
+
+        printf("Global Settings:\n");
+        print_current_value("Default Host:", config->default_host);
+        print_current_value("Log Level:", config->log_level);
+        print_current_value("Log File:", config->log_file);
+
+        printf("\nConfigured Hosts (%d):\n", config->host_count);
+        for (int i = 0; i < config->host_count; i++)
+        {
+            bool is_default =
+              config->default_host && strcmp(config->hosts[i]->name, config->default_host) == 0;
+            if (use_color)
+            {
+                printf("  \033[1;33m%d.\033[0m %s%s\n",
+                       i + 1,
+                       config->hosts[i]->name,
+                       is_default ? " \033[1;32m(default)\033[0m" : "");
+            }
+            else
+            {
+                printf(
+                  "  %d. %s%s\n", i + 1, config->hosts[i]->name, is_default ? " (default)" : "");
+            }
+        }
+
+        printf("\nOptions:\n");
+        print_menu_option_str("1-N", "Edit host by number");
+        print_menu_option_str("d", "Change default host");
+        print_menu_option_str("l", "Change log level");
+        print_menu_option_str("a", "Add new host");
+        print_menu_option_str("r", "Remove a host");
+        print_menu_option_str("q", "Quit");
+
+        printf("\nSelect option: ");
+        fflush(stdout);
+
+        if (fgets(buffer, sizeof(buffer), stdin) == NULL)
+            break;
+        buffer[strcspn(buffer, "\n")] = 0;
+
+        if (strlen(buffer) == 0)
+            continue;
+
+        if (strcmp(buffer, "q") == 0 || strcmp(buffer, "Q") == 0)
+            break;
+
+        if (strcmp(buffer, "d") == 0 || strcmp(buffer, "D") == 0)
+        {
+            if (config->host_count == 0)
+            {
+                print_error_msg("No hosts configured.");
+                continue;
+            }
+
+            printf("\nSelect default host:\n");
+            for (int i = 0; i < config->host_count; i++)
+            {
+                print_menu_option(i + 1, config->hosts[i]->name);
+            }
+
+            printf("\nEnter number: ");
+            fflush(stdout);
+            if (fgets(buffer, sizeof(buffer), stdin) != NULL)
+            {
+                buffer[strcspn(buffer, "\n")] = 0;
+                int idx = atoi(buffer) - 1;
+                if (idx >= 0 && idx < config->host_count)
+                {
+                    if (config_set_default_host(config->hosts[idx]->name))
+                    {
+                        print_success_msg("Default host updated.");
+                    }
+                    else
+                    {
+                        print_error_msg("Failed to update default host.");
+                    }
+                }
+                else
+                {
+                    print_error_msg("Invalid selection.");
+                }
+            }
+            continue;
+        }
+
+        if (strcmp(buffer, "l") == 0 || strcmp(buffer, "L") == 0)
+        {
+            printf("\nLog levels:\n");
+            print_menu_option(1, "DEBUG");
+            print_menu_option(2, "INFO");
+            print_menu_option(3, "WARN");
+            print_menu_option(4, "ERROR");
+
+            printf("\nSelect level: ");
+            fflush(stdout);
+            if (fgets(buffer, sizeof(buffer), stdin) != NULL)
+            {
+                buffer[strcspn(buffer, "\n")] = 0;
+                const char *level = NULL;
+                switch (atoi(buffer))
+                {
+                    case 1:
+                        level = "DEBUG";
+                        break;
+                    case 2:
+                        level = "INFO";
+                        break;
+                    case 3:
+                        level = "WARN";
+                        break;
+                    case 4:
+                        level = "ERROR";
+                        break;
+                }
+                if (level)
+                {
+                    if (config_set_value("log_level", level))
+                    {
+                        print_success_msg("Log level updated.");
+                    }
+                    else
+                    {
+                        print_error_msg("Failed to update log level.");
+                    }
+                }
+                else
+                {
+                    print_error_msg("Invalid selection.");
+                }
+            }
+            continue;
+        }
+
+        if (strcmp(buffer, "a") == 0 || strcmp(buffer, "A") == 0)
+        {
+            hosts_add_interactive();
+            continue;
+        }
+
+        if (strcmp(buffer, "r") == 0 || strcmp(buffer, "R") == 0)
+        {
+            if (config->host_count == 0)
+            {
+                print_error_msg("No hosts configured.");
+                continue;
+            }
+
+            printf("\nSelect host to remove:\n");
+            for (int i = 0; i < config->host_count; i++)
+            {
+                print_menu_option(i + 1, config->hosts[i]->name);
+            }
+
+            printf("\nEnter number (0 to cancel): ");
+            fflush(stdout);
+            if (fgets(buffer, sizeof(buffer), stdin) != NULL)
+            {
+                buffer[strcspn(buffer, "\n")] = 0;
+                int idx = atoi(buffer) - 1;
+                if (idx == -1)
+                {
+                    continue;
+                }
+                if (idx >= 0 && idx < config->host_count)
+                {
+                    char *name = strdup(config->hosts[idx]->name);
+                    printf("Remove host '%s'? [y/N]: ", name);
+                    fflush(stdout);
+                    if (fgets(buffer, sizeof(buffer), stdin) != NULL)
+                    {
+                        buffer[strcspn(buffer, "\n")] = 0;
+                        if (buffer[0] == 'y' || buffer[0] == 'Y')
+                        {
+                            if (config_remove_host(name))
+                            {
+                                print_success_msg("Host removed.");
+                            }
+                            else
+                            {
+                                print_error_msg("Failed to remove host.");
+                            }
+                        }
+                    }
+                    free(name);
+                }
+                else
+                {
+                    print_error_msg("Invalid selection.");
+                }
+            }
+            continue;
+        }
+
+        int host_idx = atoi(buffer) - 1;
+        if (host_idx >= 0 && host_idx < config->host_count)
+        {
+            host_edit_interactive(config->hosts[host_idx]->name);
+        }
+        else if (isdigit(buffer[0]))
+        {
+            print_error_msg("Invalid host number.");
+        }
+        else
+        {
+            print_error_msg("Unknown option.");
+        }
+    }
+
+    return EXIT_SUCCESS;
 }
