@@ -354,7 +354,7 @@ network_upload_file(const char *file_path, host_config_t *host)
                     return response;
                 }
 
-                size_t header_len = strlen(host->api_key_name) + strlen(api_key) + 3;
+                size_t header_len = strlen(host->api_key_name) + strlen(api_key) + 4;
                 char *auth_header = malloc(header_len);
                 if (!auth_header)
                 {

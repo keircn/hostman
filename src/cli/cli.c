@@ -173,6 +173,8 @@ print_command_help(const char *command)
                      "Specify which host to use. If not provided, the default host will be used");
         print_option("--directory, -d <path>", "Upload all files from a directory");
         print_option("--continue-on-error, -c", "Continue uploading if a file fails (batch mode)");
+        print_option("--throttle, -t <ms>",
+                     "Delay between uploads in ms (batch mode, avoids rate limits)");
         print_option("--help", "Show this help message");
 
         print_section_header("EXAMPLES");
@@ -180,6 +182,7 @@ print_command_help(const char *command)
         printf("  hostman upload file1.png file2.jpg file3.gif\n");
         printf("  hostman upload --directory ./screenshots/\n");
         printf("  hostman upload -d ./images/ --continue-on-error\n");
+        printf("  hostman upload -d ./images/ --throttle 1000\n");
         return;
     }
 
@@ -533,6 +536,7 @@ parse_args(int argc, char *argv[])
             static struct option long_options[] = { { "host", required_argument, 0, 'h' },
                                                     { "directory", required_argument, 0, 'd' },
                                                     { "continue-on-error", no_argument, 0, 'c' },
+                                                    { "throttle", required_argument, 0, 't' },
                                                     { "help", no_argument, 0, '?' },
                                                     { 0, 0, 0, 0 } };
 
@@ -540,7 +544,7 @@ parse_args(int argc, char *argv[])
             int c;
             optind = cmd_index + 1;
 
-            while ((c = getopt_long(argc, argv, "h:d:c", long_options, &option_index)) != -1)
+            while ((c = getopt_long(argc, argv, "h:d:ct:", long_options, &option_index)) != -1)
             {
                 switch (c)
                 {
@@ -552,6 +556,11 @@ parse_args(int argc, char *argv[])
                         break;
                     case 'c':
                         args.continue_on_error = true;
+                        break;
+                    case 't':
+                        args.throttle_ms = atoi(optarg);
+                        if (args.throttle_ms < 0)
+                            args.throttle_ms = 0;
                         break;
                     case '?':
                         print_command_help("upload");
@@ -1004,6 +1013,11 @@ execute_command(command_args_t *args)
 
                 network_free_response(response);
                 free(filename);
+
+                if (is_batch && args->throttle_ms > 0 && i < args->file_count - 1)
+                {
+                    usleep(args->throttle_ms * 1000);
+                }
             }
 
             if (is_batch)

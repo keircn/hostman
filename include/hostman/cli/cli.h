@@ -36,6 +36,7 @@ typedef struct
     int file_count;
     char *directory;
     bool continue_on_error;
+    int throttle_ms;
     int page;
     int limit;
     bool config_get;
