@@ -5,6 +5,7 @@
 #include "hostman/network/hosts.h"
 #include "hostman/network/network.h"
 #include "hostman/storage/database.h"
+#include <dirent.h>
 #include <getopt.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -136,8 +137,8 @@ print_command_help(const char *command)
         printf("\n");
 
         print_section_header("COMMANDS");
-        print_command_syntax("upload", "<file_path>"),
-          printf("   Upload a file to a hosting service\n");
+        print_command_syntax("upload", "<file_path> [file_path...]"),
+          printf("   Upload one or more files to a hosting service\n");
         print_command_syntax("list-uploads", ""), printf("   List upload history\n");
         print_command_syntax("delete-upload", "<id>"),
           printf("   Delete an upload record from history\n");
@@ -158,15 +159,24 @@ print_command_help(const char *command)
     if (strcmp(command, "upload") == 0)
     {
         print_section_header("UPLOAD");
-        printf("Upload a file to a configured hosting service\n\n");
+        printf("Upload one or more files to a configured hosting service\n\n");
 
         print_section_header("USAGE");
-        printf("  hostman upload [options] <file_path>\n\n");
+        printf("  hostman upload [options] <file_path> [file_path...]\n");
+        printf("  hostman upload [options] --directory <path>\n\n");
 
         print_section_header("OPTIONS");
         print_option("--host <name>",
                      "Specify which host to use. If not provided, the default host will be used");
+        print_option("--directory, -d <path>", "Upload all files from a directory");
+        print_option("--continue-on-error, -c", "Continue uploading if a file fails (batch mode)");
         print_option("--help", "Show this help message");
+
+        print_section_header("EXAMPLES");
+        printf("  hostman upload image.png\n");
+        printf("  hostman upload file1.png file2.jpg file3.gif\n");
+        printf("  hostman upload --directory ./screenshots/\n");
+        printf("  hostman upload -d ./images/ --continue-on-error\n");
         return;
     }
 
@@ -483,6 +493,8 @@ parse_args(int argc, char *argv[])
         case CMD_UPLOAD:
         {
             static struct option long_options[] = { { "host", required_argument, 0, 'h' },
+                                                    { "directory", required_argument, 0, 'd' },
+                                                    { "continue-on-error", no_argument, 0, 'c' },
                                                     { "help", no_argument, 0, '?' },
                                                     { 0, 0, 0, 0 } };
 
@@ -490,12 +502,18 @@ parse_args(int argc, char *argv[])
             int c;
             optind = cmd_index + 1;
 
-            while ((c = getopt_long(argc, argv, "h:", long_options, &option_index)) != -1)
+            while ((c = getopt_long(argc, argv, "h:d:c", long_options, &option_index)) != -1)
             {
                 switch (c)
                 {
                     case 'h':
                         args.host_name = strdup(optarg);
+                        break;
+                    case 'd':
+                        args.directory = strdup(optarg);
+                        break;
+                    case 'c':
+                        args.continue_on_error = true;
                         break;
                     case '?':
                         print_command_help("upload");
@@ -505,9 +523,80 @@ parse_args(int argc, char *argv[])
                 }
             }
 
-            if (optind < argc)
+            if (args.directory)
             {
-                args.file_path = strdup(argv[optind]);
+                struct stat dir_stat;
+                if (stat(args.directory, &dir_stat) != 0 || !S_ISDIR(dir_stat.st_mode))
+                {
+                    print_error("Error: '%s' is not a valid directory\n", args.directory);
+                    args.type = CMD_UNKNOWN;
+                    break;
+                }
+
+                DIR *dir = opendir(args.directory);
+                if (!dir)
+                {
+                    print_error("Error: Cannot open directory '%s'\n", args.directory);
+                    args.type = CMD_UNKNOWN;
+                    break;
+                }
+
+                int capacity = 16;
+                args.file_paths = malloc(capacity * sizeof(char *));
+                args.file_count = 0;
+
+                struct dirent *entry;
+                while ((entry = readdir(dir)) != NULL)
+                {
+                    if (entry->d_name[0] == '.')
+                        continue;
+
+                    char full_path[4096];
+                    snprintf(full_path, sizeof(full_path), "%s/%s", args.directory, entry->d_name);
+
+                    struct stat file_stat;
+                    if (stat(full_path, &file_stat) == 0 && S_ISREG(file_stat.st_mode))
+                    {
+                        if (args.file_count >= capacity)
+                        {
+                            capacity *= 2;
+                            args.file_paths = realloc(args.file_paths, capacity * sizeof(char *));
+                        }
+                        args.file_paths[args.file_count++] = strdup(full_path);
+                    }
+                }
+                closedir(dir);
+
+                if (args.file_count == 0)
+                {
+                    print_error("Error: No files found in directory '%s'\n", args.directory);
+                    args.type = CMD_UNKNOWN;
+                }
+                else if (args.file_count > 0)
+                {
+                    args.file_path = strdup(args.file_paths[0]);
+                }
+            }
+            else if (optind < argc)
+            {
+                int remaining = argc - optind;
+                if (remaining == 1)
+                {
+                    args.file_path = strdup(argv[optind]);
+                    args.file_count = 1;
+                    args.file_paths = malloc(sizeof(char *));
+                    args.file_paths[0] = strdup(argv[optind]);
+                }
+                else
+                {
+                    args.file_count = remaining;
+                    args.file_paths = malloc(remaining * sizeof(char *));
+                    for (int i = 0; i < remaining; i++)
+                    {
+                        args.file_paths[i] = strdup(argv[optind + i]);
+                    }
+                    args.file_path = strdup(args.file_paths[0]);
+                }
             }
             else
             {
@@ -694,74 +783,274 @@ execute_command(command_args_t *args)
                 }
             }
 
-            upload_response_t *response = network_upload_file(args->file_path, host);
-            if (!response)
+            bool is_batch = args->file_count > 1;
+            int success_count = 0;
+            int failure_count = 0;
+            char **success_urls = NULL;
+            char **failed_files = NULL;
+            char **failed_errors = NULL;
+
+            if (is_batch)
             {
-                print_error("Error: Upload failed\n");
-                config_free(config);
-                return EXIT_NETWORK_ERROR;
+                success_urls = malloc(args->file_count * sizeof(char *));
+                failed_files = malloc(args->file_count * sizeof(char *));
+                failed_errors = malloc(args->file_count * sizeof(char *));
+
+                print_section_header("BATCH UPLOAD");
+                print_info("  Uploading %d files to %s\n\n", args->file_count, host->name);
             }
 
-            if (response->success)
+            for (int i = 0; i < args->file_count; i++)
             {
-                print_section_header("UPLOAD SUCCESSFUL");
-
-                char *filename = get_filename_from_path(args->file_path);
+                const char *current_file = args->file_paths[i];
+                char *filename = get_filename_from_path(current_file);
                 struct stat file_stat;
-                stat(args->file_path, &file_stat);
 
-                char size_str[32];
-                format_file_size(file_stat.st_size, size_str, sizeof(size_str));
-
-                print_info("  File: %s (%s)\n", filename, size_str);
-                print_info("  Host: %s\n", host->name);
-
-                double time_ms = response->request_time_ms;
-                char time_str[32];
-                if (time_ms < 1000)
+                if (stat(current_file, &file_stat) != 0)
                 {
-                    snprintf(time_str, sizeof(time_str), "%.2f ms", time_ms);
+                    if (is_batch)
+                    {
+                        print_error(
+                          "  [%d/%d] %s - File not found\n", i + 1, args->file_count, filename);
+                        failed_files[failure_count] = strdup(filename);
+                        failed_errors[failure_count] = strdup("File not found");
+                        failure_count++;
+                        free(filename);
+
+                        if (!args->continue_on_error)
+                        {
+                            print_error(
+                              "\nStopping due to error (use --continue-on-error to continue)\n");
+                            break;
+                        }
+                        continue;
+                    }
+                    else
+                    {
+                        print_error("Error: File not found: %s\n", current_file);
+                        free(filename);
+                        config_free(config);
+                        return EXIT_FILE_ERROR;
+                    }
+                }
+
+                if (is_batch)
+                {
+                    char size_str[32];
+                    format_file_size(file_stat.st_size, size_str, sizeof(size_str));
+                    print_info("  [%d/%d] Uploading %s (%s)...\n",
+                               i + 1,
+                               args->file_count,
+                               filename,
+                               size_str);
+                }
+
+                upload_response_t *response = network_upload_file(current_file, host);
+
+                if (!response)
+                {
+                    if (is_batch)
+                    {
+                        print_error("        Failed: Network error\n");
+                        failed_files[failure_count] = strdup(filename);
+                        failed_errors[failure_count] = strdup("Network error");
+                        failure_count++;
+                        free(filename);
+
+                        if (!args->continue_on_error)
+                        {
+                            print_error(
+                              "\nStopping due to error (use --continue-on-error to continue)\n");
+                            break;
+                        }
+                        continue;
+                    }
+                    else
+                    {
+                        print_error("Error: Upload failed\n");
+                        free(filename);
+                        config_free(config);
+                        return EXIT_NETWORK_ERROR;
+                    }
+                }
+
+                if (response->success)
+                {
+                    if (is_batch)
+                    {
+                        print_success("        Success: %s\n", response->url);
+                        success_urls[success_count++] = strdup(response->url);
+                    }
+                    else
+                    {
+                        print_section_header("UPLOAD SUCCESSFUL");
+
+                        char size_str[32];
+                        format_file_size(file_stat.st_size, size_str, sizeof(size_str));
+
+                        print_info("  File: %s (%s)\n", filename, size_str);
+                        print_info("  Host: %s\n", host->name);
+
+                        double time_ms = response->request_time_ms;
+                        char time_str[32];
+                        if (time_ms < 1000)
+                        {
+                            snprintf(time_str, sizeof(time_str), "%.2f ms", time_ms);
+                        }
+                        else
+                        {
+                            snprintf(time_str, sizeof(time_str), "%.2f sec", time_ms / 1000.0);
+                        }
+                        print_info("  Request time: %s\n", time_str);
+
+                        printf("\n\033[1;32m%s\033[0m\n", response->url);
+
+                        if (response->deletion_url)
+                        {
+                            printf("\n\033[1;33mDeletion URL: %s\033[0m\n", response->deletion_url);
+                            print_info("  Save this URL to delete the file later\n");
+                        }
+                        printf("\n");
+
+                        const char *clipboard_manager = get_clipboard_manager_name();
+                        if (clipboard_manager && copy_to_clipboard(response->url))
+                        {
+                            print_success("URL copied to clipboard using %s\n", clipboard_manager);
+                        }
+                    }
+
+                    db_add_upload(host->name,
+                                  current_file,
+                                  response->url,
+                                  response->deletion_url,
+                                  filename,
+                                  file_stat.st_size);
                 }
                 else
                 {
-                    snprintf(time_str, sizeof(time_str), "%.2f sec", time_ms / 1000.0);
+                    if (is_batch)
+                    {
+                        print_error("        Failed: %s\n", response->error_message);
+                        failed_files[failure_count] = strdup(filename);
+                        failed_errors[failure_count] = strdup(
+                          response->error_message ? response->error_message : "Unknown error");
+                        failure_count++;
+
+                        if (!args->continue_on_error)
+                        {
+                            network_free_response(response);
+                            free(filename);
+                            print_error(
+                              "\nStopping due to error (use --continue-on-error to continue)\n");
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        print_error("Error: %s\n", response->error_message);
+                        network_free_response(response);
+                        free(filename);
+                        config_free(config);
+                        return EXIT_NETWORK_ERROR;
+                    }
                 }
-                print_info("  Request time: %s\n", time_str);
 
-                printf("\n\033[1;32m%s\033[0m\n", response->url);
-
-                if (response->deletion_url)
-                {
-                    printf("\n\033[1;33mDeletion URL: %s\033[0m\n", response->deletion_url);
-                    print_info("  Save this URL to delete the file later\n");
-                }
-                printf("\n");
-
-                const char *clipboard_manager = get_clipboard_manager_name();
-                if (clipboard_manager && copy_to_clipboard(response->url))
-                {
-                    print_success("✓ URL copied to clipboard using %s\n", clipboard_manager);
-                }
-
-                db_add_upload(host->name,
-                              args->file_path,
-                              response->url,
-                              response->deletion_url,
-                              filename,
-                              file_stat.st_size);
-
+                network_free_response(response);
                 free(filename);
-                network_free_response(response);
-                config_free(config);
-                return EXIT_SUCCESS;
             }
-            else
+
+            if (is_batch)
             {
-                print_error("Error: %s\n", response->error_message);
-                network_free_response(response);
-                config_free(config);
-                return EXIT_NETWORK_ERROR;
+                printf("\n");
+                print_section_header("BATCH SUMMARY");
+                print_info("  Total files: %d\n", args->file_count);
+                print_success("  Successful:  %d\n", success_count);
+                if (failure_count > 0)
+                {
+                    print_error("  Failed:      %d\n", failure_count);
+                }
+                else
+                {
+                    print_info("  Failed:      0\n");
+                }
+
+                if (success_count > 0)
+                {
+                    printf("\n");
+                    print_section_header("UPLOADED URLs");
+                    for (int i = 0; i < success_count; i++)
+                    {
+                        printf("  \033[1;32m%s\033[0m\n", success_urls[i]);
+                    }
+
+                    const char *clipboard_manager = get_clipboard_manager_name();
+                    if (clipboard_manager && success_count == 1)
+                    {
+                        if (copy_to_clipboard(success_urls[0]))
+                        {
+                            printf("\n");
+                            print_success("URL copied to clipboard using %s\n", clipboard_manager);
+                        }
+                    }
+                    else if (clipboard_manager && success_count > 1)
+                    {
+                        size_t total_len = 0;
+                        for (int i = 0; i < success_count; i++)
+                        {
+                            total_len += strlen(success_urls[i]) + 1;
+                        }
+
+                        char *all_urls = malloc(total_len);
+                        if (all_urls)
+                        {
+                            all_urls[0] = '\0';
+                            for (int i = 0; i < success_count; i++)
+                            {
+                                strcat(all_urls, success_urls[i]);
+                                if (i < success_count - 1)
+                                {
+                                    strcat(all_urls, "\n");
+                                }
+                            }
+                            if (copy_to_clipboard(all_urls))
+                            {
+                                printf("\n");
+                                print_success("All URLs copied to clipboard using %s\n",
+                                              clipboard_manager);
+                            }
+                            free(all_urls);
+                        }
+                    }
+                }
+
+                if (failure_count > 0)
+                {
+                    printf("\n");
+                    print_section_header("FAILED FILES");
+                    for (int i = 0; i < failure_count; i++)
+                    {
+                        print_error("  %s: %s\n", failed_files[i], failed_errors[i]);
+                    }
+                }
+
+                for (int i = 0; i < success_count; i++)
+                {
+                    free(success_urls[i]);
+                }
+                for (int i = 0; i < failure_count; i++)
+                {
+                    free(failed_files[i]);
+                    free(failed_errors[i]);
+                }
+                free(success_urls);
+                free(failed_files);
+                free(failed_errors);
+
+                printf("\n");
             }
+
+            config_free(config);
+            return failure_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
         }
 
         case CMD_LIST_UPLOADS:
@@ -1325,6 +1614,15 @@ free_command_args(command_args_t *args)
     {
         free(args->host_name);
         free(args->file_path);
+        free(args->directory);
+        if (args->file_paths)
+        {
+            for (int i = 0; i < args->file_count; i++)
+            {
+                free(args->file_paths[i]);
+            }
+            free(args->file_paths);
+        }
         free(args->config_key);
         free(args->config_value);
         free(args->command_name);

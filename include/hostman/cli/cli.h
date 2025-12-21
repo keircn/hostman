@@ -31,6 +31,10 @@ typedef struct
     command_type_t type;
     char *host_name;
     char *file_path;
+    char **file_paths;
+    int file_count;
+    char *directory;
+    bool continue_on_error;
     int page;
     int limit;
     bool config_get;
