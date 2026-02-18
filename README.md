@@ -1,6 +1,6 @@
-# Hostman - Image host manager
+# Hostman
 
-Hostman is a robust, cross-platform command-line application for uploading files (primarily images) to various hosting services.
+A command line image host manager
 
 ## Installation
 
@@ -19,7 +19,7 @@ Hostman is a robust, cross-platform command-line application for uploading files
 ### Building from Source
 
 ```bash
-git clone https://github.com/Bestire/hostman && cd hostman
+git clone https://github.com/keircn/hostman && cd hostman
 cmake -B build -DHOSTMAN_USE_TUI=ON && cmake --build build
 sudo cmake --install build  # optional, installs the binary to /usr/local/bin
 ```
