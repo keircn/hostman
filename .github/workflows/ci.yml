@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-ubuntu:
+    name: Build (Ubuntu)
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          pkg-config \
+          libcurl4-openssl-dev \
+          libsqlite3-dev \
+          libcjson-dev \
+          libssl-dev \
+          libncurses5-dev \
+          clang-format
+
+    - name: Configure CMake
+      run: cmake -B build -DHOSTMAN_USE_TUI=ON
+
+    - name: Build
+      run: cmake --build build --config Release
+
+    - name: Check Formatting
+      run: cmake --build build --target check-format
+
+  build-nix:
+    name: Build (Nix)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: cachix/install-nix-action@v30
+    
+    - name: Build with Nix
+      run: nix build .

@@ -117,7 +117,7 @@ if(CLANG_FORMAT)
         VERBATIM)
     
     add_custom_target(check-format
-        COMMAND ${CLANG_FORMAT} -style=file -output-replacements-xml ${ALL_SOURCE_FILES} | grep -c "<replacement " > /dev/null && echo "Code formatting issues found" || echo "Code formatting check passed"
+        COMMAND ${CLANG_FORMAT} --dry-run --Werror -style=file ${ALL_SOURCE_FILES}
         COMMENT "Checking code formatting with clang-format"
         VERBATIM)
 else()
