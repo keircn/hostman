@@ -237,6 +237,16 @@ parse_config(cJSON *json)
         }
     }
 
+    cJSON *copy_to_clipboard = cJSON_GetObjectItem(json, "copy_to_clipboard");
+    if (copy_to_clipboard && cJSON_IsBool(copy_to_clipboard))
+    {
+        config->copy_to_clipboard = cJSON_IsTrue(copy_to_clipboard);
+    }
+    else
+    {
+        config->copy_to_clipboard = true;
+    }
+
     cJSON *hosts = cJSON_GetObjectItem(json, "hosts");
     if (hosts && cJSON_IsObject(hosts))
     {
@@ -353,6 +363,8 @@ config_to_json(hostman_config_t *config)
     {
         cJSON_AddStringToObject(json, "log_file", config->log_file);
     }
+
+    cJSON_AddBoolToObject(json, "copy_to_clipboard", config->copy_to_clipboard);
 
     cJSON *hosts = cJSON_CreateObject();
     for (int i = 0; i < config->host_count; i++)
@@ -578,6 +590,10 @@ config_get_value(const char *key)
             value = strdup(config->log_file);
         }
     }
+    else if (strcmp(key, "copy_to_clipboard") == 0)
+    {
+        value = strdup(config->copy_to_clipboard ? "true" : "false");
+    }
     else
     {
         if (strncmp(key, "hosts.", 6) == 0)
@@ -681,6 +697,7 @@ config_set_value(const char *key, const char *value)
         }
         config->version = 1;
         config->log_level = strdup("INFO");
+        config->copy_to_clipboard = true;
 
         char *cache_dir = get_cache_dir();
         if (cache_dir)
@@ -748,6 +765,15 @@ config_set_value(const char *key, const char *value)
         free(config->log_file);
         config->log_file = strdup(value);
         changed = true;
+    }
+    else if (strcmp(key, "copy_to_clipboard") == 0)
+    {
+        bool new_val = (strcmp(value, "true") == 0 || strcmp(value, "1") == 0);
+        if (config->copy_to_clipboard != new_val)
+        {
+            config->copy_to_clipboard = new_val;
+            changed = true;
+        }
     }
     else
     {
@@ -858,6 +884,7 @@ config_add_host(host_config_t *host)
         }
         config->version = 1;
         config->log_level = strdup("INFO");
+        config->copy_to_clipboard = true;
 
         char *cache_dir = get_cache_dir();
         if (cache_dir)

@@ -175,6 +175,7 @@ print_command_help(const char *command)
         print_option("--continue-on-error, -c", "Continue uploading if a file fails (batch mode)");
         print_option("--throttle, -t <ms>",
                      "Delay between uploads in ms (batch mode, avoids rate limits)");
+        print_option("--no-clipboard, -n", "Do not copy URL(s) to clipboard");
         print_option("--help", "Show this help message");
 
         print_section_header("EXAMPLES");
@@ -317,6 +318,7 @@ print_command_help(const char *command)
         print_section_header("KEYS");
         print_option("log_level", "Log level (DEBUG, INFO, WARN, ERROR)");
         print_option("log_file", "Path to log file");
+        print_option("copy_to_clipboard", "Copy uploaded URL to clipboard (true/false)");
         print_option("default_host", "Default host for uploads");
         print_option("hosts.<name>.<prop>", "Host-specific settings");
 
@@ -537,6 +539,7 @@ parse_args(int argc, char *argv[])
                                                     { "directory", required_argument, 0, 'd' },
                                                     { "continue-on-error", no_argument, 0, 'c' },
                                                     { "throttle", required_argument, 0, 't' },
+                                                    { "no-clipboard", no_argument, 0, 'n' },
                                                     { "help", no_argument, 0, '?' },
                                                     { 0, 0, 0, 0 } };
 
@@ -544,7 +547,7 @@ parse_args(int argc, char *argv[])
             int c;
             optind = cmd_index + 1;
 
-            while ((c = getopt_long(argc, argv, "h:d:ct:", long_options, &option_index)) != -1)
+            while ((c = getopt_long(argc, argv, "h:d:ct:n", long_options, &option_index)) != -1)
             {
                 switch (c)
                 {
@@ -561,6 +564,9 @@ parse_args(int argc, char *argv[])
                         args.throttle_ms = atoi(optarg);
                         if (args.throttle_ms < 0)
                             args.throttle_ms = 0;
+                        break;
+                    case 'n':
+                        args.no_clipboard = true;
                         break;
                     case '?':
                         print_command_help("upload");
@@ -969,7 +975,8 @@ execute_command(command_args_t *args)
                         printf("\n");
 
                         const char *clipboard_manager = get_clipboard_manager_name();
-                        if (clipboard_manager && copy_to_clipboard(response->url))
+                        if (clipboard_manager && !args->no_clipboard && config->copy_to_clipboard &&
+                            copy_to_clipboard(response->url))
                         {
                             print_success("URL copied to clipboard using %s\n", clipboard_manager);
                         }
@@ -1045,41 +1052,45 @@ execute_command(command_args_t *args)
                     }
 
                     const char *clipboard_manager = get_clipboard_manager_name();
-                    if (clipboard_manager && success_count == 1)
+                    if (clipboard_manager && !args->no_clipboard && config->copy_to_clipboard)
                     {
-                        if (copy_to_clipboard(success_urls[0]))
+                        if (success_count == 1)
                         {
-                            printf("\n");
-                            print_success("URL copied to clipboard using %s\n", clipboard_manager);
-                        }
-                    }
-                    else if (clipboard_manager && success_count > 1)
-                    {
-                        size_t total_len = 0;
-                        for (int i = 0; i < success_count; i++)
-                        {
-                            total_len += strlen(success_urls[i]) + 1;
-                        }
-
-                        char *all_urls = malloc(total_len);
-                        if (all_urls)
-                        {
-                            all_urls[0] = '\0';
-                            for (int i = 0; i < success_count; i++)
-                            {
-                                strcat(all_urls, success_urls[i]);
-                                if (i < success_count - 1)
-                                {
-                                    strcat(all_urls, "\n");
-                                }
-                            }
-                            if (copy_to_clipboard(all_urls))
+                            if (copy_to_clipboard(success_urls[0]))
                             {
                                 printf("\n");
-                                print_success("All URLs copied to clipboard using %s\n",
+                                print_success("URL copied to clipboard using %s\n",
                                               clipboard_manager);
                             }
-                            free(all_urls);
+                        }
+                        else if (success_count > 1)
+                        {
+                            size_t total_len = 0;
+                            for (int i = 0; i < success_count; i++)
+                            {
+                                total_len += strlen(success_urls[i]) + 1;
+                            }
+
+                            char *all_urls = malloc(total_len);
+                            if (all_urls)
+                            {
+                                all_urls[0] = '\0';
+                                for (int i = 0; i < success_count; i++)
+                                {
+                                    strcat(all_urls, success_urls[i]);
+                                    if (i < success_count - 1)
+                                    {
+                                        strcat(all_urls, "\n");
+                                    }
+                                }
+                                if (copy_to_clipboard(all_urls))
+                                {
+                                    printf("\n");
+                                    print_success("All URLs copied to clipboard using %s\n",
+                                                  clipboard_manager);
+                                }
+                                free(all_urls);
+                            }
                         }
                     }
                 }

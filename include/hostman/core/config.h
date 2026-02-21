@@ -25,6 +25,7 @@ typedef struct
     char *default_host;
     char *log_level;
     char *log_file;
+    bool copy_to_clipboard;
     host_config_t **hosts;
     int host_count;
 } hostman_config_t;
