@@ -261,7 +261,8 @@ hosts_add_interactive(void)
 
     char *request_body_format = read_input_default("Request body format", "multipart");
     char *file_form_field = read_input_default("File form field name", "file");
-    char *response_url_json_path = read_input_default("JSON path to URL in response", "url");
+    char *response_url_json_path =
+      read_input_default("URL response path (JSON path or raw/text)", "url");
     char *response_deletion_url_json_path =
       read_input_default("JSON path to deletion URL in response (leave blank if unsupported)", "");
     char **static_field_names = NULL;

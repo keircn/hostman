@@ -3,6 +3,7 @@
 #include "hostman/core/utils.h"
 #include "hostman/crypto/encryption.h"
 #include <curl/curl.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,6 +45,109 @@ write_callback(void *contents, size_t size, size_t nmemb, void *userp)
     resp->data[resp->size] = 0;
 
     return real_size;
+}
+
+static char *
+duplicate_trimmed(const char *text)
+{
+    if (!text)
+    {
+        return NULL;
+    }
+
+    const char *start = text;
+    while (*start && isspace((unsigned char)*start))
+    {
+        start++;
+    }
+
+    const char *end = text + strlen(text);
+    while (end > start && isspace((unsigned char)*(end - 1)))
+    {
+        end--;
+    }
+
+    if (end <= start)
+    {
+        return NULL;
+    }
+
+    size_t len = (size_t)(end - start);
+    if (len >= 2 && ((start[0] == '"' && start[len - 1] == '"') ||
+                     (start[0] == '\'' && start[len - 1] == '\'')))
+    {
+        start++;
+        len -= 2;
+    }
+
+    char *out = malloc(len + 1);
+    if (!out)
+    {
+        return NULL;
+    }
+
+    memcpy(out, start, len);
+    out[len] = '\0';
+    return out;
+}
+
+static bool
+is_raw_response_path(const char *path)
+{
+    if (!path || path[0] == '\0')
+    {
+        return false;
+    }
+
+    return strcmp(path, "raw") == 0 || strcmp(path, "$raw") == 0 || strcmp(path, "text") == 0;
+}
+
+static bool
+looks_like_url(const char *value)
+{
+    if (!value)
+    {
+        return false;
+    }
+
+    return strncmp(value, "http://", 7) == 0 || strncmp(value, "https://", 8) == 0;
+}
+
+static char *
+extract_response_value(const char *response_body, const char *path)
+{
+    if (!response_body || response_body[0] == '\0')
+    {
+        return NULL;
+    }
+
+    if (is_raw_response_path(path))
+    {
+        return duplicate_trimmed(response_body);
+    }
+
+    if (path && path[0] != '\0')
+    {
+        char *json_value = extract_json_string(response_body, path);
+        if (json_value)
+        {
+            return json_value;
+        }
+    }
+
+    char *raw_value = duplicate_trimmed(response_body);
+    if (!raw_value)
+    {
+        return NULL;
+    }
+
+    if (looks_like_url(raw_value))
+    {
+        return raw_value;
+    }
+
+    free(raw_value);
+    return NULL;
 }
 
 static int
@@ -405,7 +509,7 @@ network_upload_file(const char *file_path, host_config_t *host)
         }
         else if (response->http_code >= 200 && response->http_code < 300)
         {
-            char *url = extract_json_string(response_data.data, host->response_url_json_path);
+            char *url = extract_response_value(response_data.data, host->response_url_json_path);
             if (url)
             {
                 response->success = true;

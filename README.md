@@ -112,7 +112,13 @@ Hostman uses a JSON configuration file located at `$HOME/.config/hostman/config.
 
 Hostman supports deletion of files from hosting services that provide deletion URLs in their upload responses. Not all hosts support this feature.
 
-When configuring a host, you can specify the JSON path to the deletion URL in the response using the `response_deletion_url_json_path` field. Leave this blank if the host doesn't support file deletion.
+When configuring a host, `response_url_json_path` supports:
+
+- Dot JSON paths like `url` or `data.url`
+- Array indexing like `files[0].url`
+- Raw text responses via `raw` or `text` (uses the full response body)
+
+You can specify the JSON path to the deletion URL in the response using `response_deletion_url_json_path`. Leave this blank if the host doesn't support file deletion.
 
 For example, if your hosting service returns:
 
