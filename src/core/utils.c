@@ -1,5 +1,6 @@
 #include "hostman/core/utils.h"
 #include "hostman/core/logging.h"
+#include <ctype.h>
 #include <math.h>
 #include <pwd.h>
 #include <stdio.h>
@@ -146,14 +147,83 @@ extract_json_string(const char *json, const char *path)
         return NULL;
     }
 
-    char *path_copy = strdup(path);
-    char *token = strtok(path_copy, ".");
     cJSON *current = root;
+    const char *p = path;
 
-    while (token && current)
+    while (*p != '\0' && current)
     {
-        current = cJSON_GetObjectItem(current, token);
-        token = strtok(NULL, ".");
+        if (*p == '.')
+        {
+            p++;
+            continue;
+        }
+
+        if (*p != '[')
+        {
+            const char *key_start = p;
+            while (*p != '\0' && *p != '.' && *p != '[')
+            {
+                p++;
+            }
+
+            size_t key_len = (size_t)(p - key_start);
+            if (key_len == 0)
+            {
+                current = NULL;
+                break;
+            }
+
+            char *key = malloc(key_len + 1);
+            if (!key)
+            {
+                cJSON_Delete(root);
+                return NULL;
+            }
+
+            memcpy(key, key_start, key_len);
+            key[key_len] = '\0';
+            current = cJSON_GetObjectItem(current, key);
+            free(key);
+
+            if (!current)
+            {
+                break;
+            }
+        }
+
+        while (*p == '[' && current)
+        {
+            p++;
+
+            if (!isdigit((unsigned char)*p))
+            {
+                current = NULL;
+                break;
+            }
+
+            int index = 0;
+            while (isdigit((unsigned char)*p))
+            {
+                index = index * 10 + (*p - '0');
+                p++;
+            }
+
+            if (*p != ']')
+            {
+                current = NULL;
+                break;
+            }
+
+            p++;
+
+            if (!cJSON_IsArray(current))
+            {
+                current = NULL;
+                break;
+            }
+
+            current = cJSON_GetArrayItem(current, index);
+        }
     }
 
     if (current && cJSON_IsString(current))
@@ -161,7 +231,6 @@ extract_json_string(const char *json, const char *path)
         result = strdup(current->valuestring);
     }
 
-    free(path_copy);
     cJSON_Delete(root);
 
     return result;
