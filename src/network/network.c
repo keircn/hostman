@@ -2,8 +2,8 @@
 #include "hostman/core/logging.h"
 #include "hostman/core/utils.h"
 #include "hostman/crypto/encryption.h"
-#include <curl/curl.h>
 #include <ctype.h>
+#include <curl/curl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
