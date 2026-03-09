@@ -45,7 +45,7 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install cmake curl openssl sqlite cjson ncurses
+          brew install cmake curl openssl sqlite cjson ncurses pkg-config
 
       - name: Configure CMake (macOS)
         if: runner.os == 'macOS'
@@ -54,8 +54,10 @@ jobs:
           cd build
           cmake \
             -DCMAKE_PREFIX_PATH="$(brew --prefix)/opt/openssl@3;$(brew --prefix)" \
-            -DCMAKE_LIBRARY_PATH="$(brew --prefix)/lib;$(brew --prefix)/opt/curl/lib;$(brew --prefix)/opt/openssl@3/lib" \
-            -DCMAKE_INCLUDE_PATH="$(brew --prefix)/include;$(brew --prefix)/opt/curl/include;$(brew --prefix)/opt/openssl@3/include" \
+            -DCMAKE_LIBRARY_PATH="$(brew --prefix)/lib;$(brew --prefix)/opt/curl/lib;$(brew --prefix)/opt/openssl@3/lib;$(brew --prefix)/opt/cjson/lib" \
+            -DCMAKE_INCLUDE_PATH="$(brew --prefix)/include;$(brew --prefix)/opt/curl/include;$(brew --prefix)/opt/openssl@3/include;$(brew --prefix)/opt/cjson/include" \
+            -DCMAKE_C_FLAGS="-I$(brew --prefix)/opt/cjson/include" \
+            -DCMAKE_EXE_LINKER_FLAGS="-L$(brew --prefix)/opt/cjson/lib" \
             ${{ matrix.cmake_opts }} ..
 
       - name: Configure CMake (Linux)
@@ -74,6 +76,7 @@ jobs:
       - name: Install vcpkg dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
+          choco install pkgutils -y
           git clone https://github.com/microsoft/vcpkg.git C:/vcpkg --depth 1
           C:/vcpkg/bootstrap-vcpkg.bat -disableMetrics
           C:/vcpkg/vcpkg integrate install
