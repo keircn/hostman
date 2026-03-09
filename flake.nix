@@ -15,7 +15,7 @@
         packages = rec {
           hostman = pkgs.stdenv.mkDerivation {
             pname = "hostman";
-            version = "1.2.2";
+            version = "1.2.4";
 
             src = self;
 

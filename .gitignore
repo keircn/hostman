@@ -1,5 +1,6 @@
 build
 release
+result
 test_uploads
 *.md
 !README.md
