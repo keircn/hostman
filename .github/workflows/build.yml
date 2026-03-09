@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
             cmake_opts: -DHOSTMAN_USE_TUI=ON
           - os: windows-latest
             artifact_name: hostman-windows-x64
-            cmake_opts: -DHOSTMAN_USE_TUI=ON
+            cmake_opts: -DHOSTMAN_USE_TUI=OFF
 
     runs-on: ${{ matrix.os }}
 
