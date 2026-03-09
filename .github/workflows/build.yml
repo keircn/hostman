@@ -28,7 +28,7 @@ jobs:
             cmake_opts: -DHOSTMAN_USE_TUI=ON
           - os: windows-latest
             artifact_name: hostman-windows-x64
-            cmake_opts: -DHOSTMAN_USE_TUI=OFF -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+            cmake_opts: -DHOSTMAN_USE_TUI=OFF
 
     runs-on: ${{ matrix.os }}
 
@@ -58,8 +58,8 @@ jobs:
             -DCMAKE_INCLUDE_PATH="$(brew --prefix)/include;$(brew --prefix)/opt/curl/include;$(brew --prefix)/opt/openssl@3/include" \
             ${{ matrix.cmake_opts }} ..
 
-      - name: Configure CMake (Other)
-        if: runner.os != 'macOS'
+      - name: Configure CMake (Linux)
+        if: runner.os == 'Linux'
         run: |
           mkdir -p build
           cd build
@@ -67,10 +67,24 @@ jobs:
 
       - name: Setup MSVC
         if: runner.os == 'Windows'
-        uses: microsoft/setup-msvc@v1
+        uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          vcpkg: true
+
+      - name: Install vcpkg dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git C:/vcpkg --depth 1
+          C:/vcpkg/bootstrap-vcpkg.bat -disableMetrics
+          C:/vcpkg/vcpkg integrate install
+          C:/vcpkg/vcpkg install curl:x64-windows sqlite3:x64-windows cjson:x64-windows openssl:x64-windows
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir -p build
+          cd build
+          cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ..
 
       - name: Build
         working-directory: build
