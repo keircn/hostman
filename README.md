@@ -2,7 +2,7 @@
 
 A command line image host manager
 
-[![CI](https://github.com/keircn/hostman/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/keircn/hostman/actions/workflows/ci.yml)
+[![Build and Release](https://github.com/keircn/hostman/actions/workflows/build.yml/badge.svg)](https://github.com/keircn/hostman/actions/workflows/build.yml)
 
 ## Installation
 
