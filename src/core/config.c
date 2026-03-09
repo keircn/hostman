@@ -768,6 +768,12 @@ config_set_value(const char *key, const char *value)
     }
     else if (strcmp(key, "copy_to_clipboard") == 0)
     {
+        if (strcmp(value, "true") != 0 && strcmp(value, "false") != 0 && strcmp(value, "1") != 0 &&
+            strcmp(value, "0") != 0)
+        {
+            log_error("Invalid value '%s' for copy_to_clipboard. Use 'true' or 'false'", value);
+            return false;
+        }
         bool new_val = (strcmp(value, "true") == 0 || strcmp(value, "1") == 0);
         if (config->copy_to_clipboard != new_val)
         {
