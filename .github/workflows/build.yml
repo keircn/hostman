@@ -58,28 +58,6 @@ jobs:
           cd build
           cmake ${{ matrix.cmake_opts }} ..
 
-      - name: Setup MSVC
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Install vcpkg dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          choco install pkgutils -y
-          git clone https://github.com/microsoft/vcpkg.git C:/vcpkg --depth 1
-          C:/vcpkg/bootstrap-vcpkg.bat -disableMetrics
-          C:/vcpkg/vcpkg integrate install
-          C:/vcpkg/vcpkg install curl:x64-windows sqlite3:x64-windows cjson:x64-windows openssl:x64-windows
-
-      - name: Configure CMake (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          mkdir -p build
-          cd build
-          cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ..
-
       - name: Build
         working-directory: build
         run: cmake --build . --config Release
@@ -87,18 +65,21 @@ jobs:
       - name: Create artifact
         run: |
           mkdir -p artifact
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cp build/hostman.exe artifact/${{ matrix.artifact_name }}.exe
-          else
-            cp build/hostman artifact/${{ matrix.artifact_name }}
-          fi
+          mkdir -p dist/${{ matrix.artifact_name }}
+          cp build/hostman dist/${{ matrix.artifact_name }}/hostman
+          chmod +x dist/${{ matrix.artifact_name }}/hostman
+          cp LICENSE dist/${{ matrix.artifact_name }}/LICENSE
+          cp README.md dist/${{ matrix.artifact_name }}/README.md
+          cp CHANGELOG.md dist/${{ matrix.artifact_name }}/CHANGELOG.md
+          cp BUILD.md dist/${{ matrix.artifact_name }}/BUILD.md
+          tar -czf artifact/${{ matrix.artifact_name }}.tar.gz -C dist ${{ matrix.artifact_name }}
 
       - name: Upload artifact
         if: "${{ github.token != '' }}"
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: artifact/*
+          path: artifact/*.tar.gz
           retention-days: 5
 
   release:
@@ -153,7 +134,7 @@ jobs:
           prerelease: false
           generate_release_notes: false
           files: |
-            artifacts/hostman-linux-x64/hostman-linux-x64
-            artifacts/hostman-macos-arm64/hostman-macos-arm64
+            artifacts/hostman-linux-x64/hostman-linux-x64.tar.gz
+            artifacts/hostman-macos-arm64/hostman-macos-arm64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
