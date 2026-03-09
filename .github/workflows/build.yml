@@ -20,9 +20,6 @@ jobs:
           - os: macos-latest
             artifact_name: hostman-macos-arm64
             cmake_opts: -DHOSTMAN_USE_TUI=ON
-          - os: windows-latest
-            artifact_name: hostman-windows-x64
-            cmake_opts: -DHOSTMAN_USE_TUI=OFF
 
     runs-on: ${{ matrix.os }}
 
