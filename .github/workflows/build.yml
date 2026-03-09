@@ -28,7 +28,7 @@ jobs:
             cmake_opts: -DHOSTMAN_USE_TUI=ON
           - os: windows-latest
             artifact_name: hostman-windows-x64
-            cmake_opts: -DHOSTMAN_USE_TUI=OFF
+            cmake_opts: -DHOSTMAN_USE_TUI=OFF -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
 
     runs-on: ${{ matrix.os }}
 
@@ -45,13 +45,32 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install cmake openssl sqlite cjson ncurses
+          brew install cmake curl openssl sqlite cjson ncurses
 
-      - name: Configure CMake
+      - name: Configure CMake (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p build
+          cd build
+          cmake \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix)/opt/openssl@3;$(brew --prefix)" \
+            -DCMAKE_LIBRARY_PATH="$(brew --prefix)/lib;$(brew --prefix)/opt/curl/lib;$(brew --prefix)/opt/openssl@3/lib" \
+            -DCMAKE_INCLUDE_PATH="$(brew --prefix)/include;$(brew --prefix)/opt/curl/include;$(brew --prefix)/opt/openssl@3/include" \
+            ${{ matrix.cmake_opts }} ..
+
+      - name: Configure CMake (Other)
+        if: runner.os != 'macOS'
         run: |
           mkdir -p build
           cd build
           cmake ${{ matrix.cmake_opts }} ..
+
+      - name: Setup MSVC
+        if: runner.os == 'Windows'
+        uses: microsoft/setup-msvc@v1
+        with:
+          arch: x64
+          vcpkg: true
 
       - name: Build
         working-directory: build
