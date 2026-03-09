@@ -16,19 +16,13 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: hostman-linux-x64
-            cmake_opts: -DHOSTMAN_USE_TUI=OFF
-          - os: ubuntu-latest
-            artifact_name: hostman-linux-x64-tui
             cmake_opts: -DHOSTMAN_USE_TUI=ON
           - os: macos-latest
             artifact_name: hostman-macos-arm64
-            cmake_opts: -DHOSTMAN_USE_TUI=OFF
-          - os: macos-latest
-            artifact_name: hostman-macos-arm64-tui
             cmake_opts: -DHOSTMAN_USE_TUI=ON
           - os: windows-latest
             artifact_name: hostman-windows-x64
-            cmake_opts: -DHOSTMAN_USE_TUI=OFF
+            cmake_opts: -DHOSTMAN_USE_TUI=ON
 
     runs-on: ${{ matrix.os }}
 
@@ -163,9 +157,7 @@ jobs:
           generate_release_notes: false
           files: |
             artifacts/hostman-linux-x64/hostman
-            artifacts/hostman-linux-x64-tui/hostman
             artifacts/hostman-macos-arm64/hostman
-            artifacts/hostman-macos-arm64-tui/hostman
             artifacts/hostman-windows-x64/hostman.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
