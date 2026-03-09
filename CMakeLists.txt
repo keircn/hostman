@@ -34,8 +34,12 @@ else()
 endif()
 
 if(HOSTMAN_USE_TUI)
-    find_package(Curses REQUIRED)
-    add_definitions(-DUSE_TUI)
+    if(WIN32)
+        message(STATUS "TUI not supported on Windows, building without TUI")
+    else()
+        find_package(Curses REQUIRED)
+        add_definitions(-DUSE_TUI)
+    endif()
 endif()
 
 set(HOSTMAN_CORE_SOURCES
