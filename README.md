@@ -6,25 +6,7 @@ A command line image host manager
 
 ## Installation
 
-### Build-time dependencies
-
-- C compiler (GCC or Clang)
-- CMake
-
-### Runtime dependencies
-
-- libcurl
-- cJSON
-- SQLite3
-- OpenSSL
-
-### Building from Source
-
-```bash
-git clone https://github.com/keircn/hostman && cd hostman
-cmake -B build -DHOSTMAN_USE_TUI=ON && cmake --build build
-sudo cmake --install build  # optional, installs the binary to /usr/local/bin
-```
+Either get the latest binary release from [GitHub](https://github.com/keircn/hostman/releases/latest) or build from source according to [BUILD.md](./BUILD.md)
 
 ## Usage
 
