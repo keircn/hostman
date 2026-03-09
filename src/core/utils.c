@@ -255,6 +255,18 @@ detect_clipboard_manager(void)
         return command_found;
     }
 
+    const char *path_env = getenv("PATH");
+    if (!path_env)
+    {
+        return NULL;
+    }
+
+    char *path_copy = strdup(path_env);
+    if (!path_copy)
+    {
+        return NULL;
+    }
+
     for (size_t i = 0; i < sizeof(managers) / sizeof(managers[0]); i++)
     {
         if (strlen(managers[i]) >= sizeof(command_found))
@@ -262,16 +274,27 @@ detect_clipboard_manager(void)
             continue;
         }
 
-        char which_cmd[128];
-        snprintf(which_cmd, sizeof(which_cmd), "which %s >/dev/null 2>&1", managers[i]);
-
-        if (system(which_cmd) == 0)
+        char *path_copy_local = path_copy;
+        char *dir = strtok(path_copy_local, ":");
+        while (dir != NULL)
         {
-            strncpy(command_found, managers[i], sizeof(command_found) - 1);
-            command_found[sizeof(command_found) - 1] = '\0';
-            return command_found;
+            char cmd_path[256];
+            snprintf(cmd_path, sizeof(cmd_path), "%s/%s", dir, managers[i]);
+
+            if (access(cmd_path, X_OK) == 0)
+            {
+                free(path_copy);
+                strncpy(command_found, managers[i], sizeof(command_found) - 1);
+                command_found[sizeof(command_found) - 1] = '\0';
+                return command_found;
+            }
+
+            path_copy_local = NULL;
+            dir = strtok(path_copy_local, ":");
         }
     }
+
+    free(path_copy);
 
     return NULL;
 }
@@ -297,13 +320,14 @@ copy_to_clipboard(const char *text)
     const char *clipboard_cmd = detect_clipboard_manager();
     if (!clipboard_cmd)
     {
+        log_error("No clipboard manager found. Install wl-copy, xclip, xsel, or pbcopy");
         return false;
     }
 
     const char *cmd = NULL;
     if (strcmp(clipboard_cmd, "wl-copy") == 0)
     {
-        cmd = "wl-copy";
+        cmd = "wl-copy --foreground";
     }
     else if (strcmp(clipboard_cmd, "xclip") == 0)
     {
@@ -341,7 +365,19 @@ copy_to_clipboard(const char *text)
     size_t written = fwrite(text, 1, text_len, pipe);
     int status = pclose(pipe);
 
-    return (written == text_len && status == 0);
+    if (written != text_len)
+    {
+        log_error("Failed to write text to clipboard (wrote %zu of %zu bytes)", written, text_len);
+        return false;
+    }
+
+    if (status != 0)
+    {
+        log_error("Clipboard command exited with status %d", status);
+        return false;
+    }
+
+    return true;
 }
 
 void
