@@ -1669,6 +1669,7 @@ run_setup_wizard(void)
     config->hosts = NULL;
     config->host_count = 0;
     config->default_host = NULL;
+    config->copy_to_clipboard = true;
 
     if (!config_save(config))
     {

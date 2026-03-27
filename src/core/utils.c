@@ -237,22 +237,18 @@ extract_json_string(const char *json, const char *path)
 }
 
 static const char *
-detect_clipboard_manager(void)
+find_command_in_path(const char *command)
 {
-    const char *managers[] = {
-        "wl-copy",            // Wayland
-        "xclip",              // X11
-        "xsel",               // X11 alternative
-        "pbcopy",             // macOS
-        "clip.exe",           // Windows (i think wsl too)
-        "fish_clipboard_copy" // Fish shell (im desperate)
-    };
+    if (!command || command[0] == '\0')
+    {
+        return NULL;
+    }
 
     static char command_found[64] = { 0 };
 
-    if (command_found[0] != '\0')
+    if (strlen(command) >= sizeof(command_found))
     {
-        return command_found;
+        return NULL;
     }
 
     const char *path_env = getenv("PATH");
@@ -267,36 +263,96 @@ detect_clipboard_manager(void)
         return NULL;
     }
 
-    for (size_t i = 0; i < sizeof(managers) / sizeof(managers[0]); i++)
+    char *dir = strtok(path_copy, ":");
+    while (dir != NULL)
     {
-        if (strlen(managers[i]) >= sizeof(command_found))
+        char cmd_path[256];
+        snprintf(cmd_path, sizeof(cmd_path), "%s/%s", dir, command);
+
+        if (access(cmd_path, X_OK) == 0)
         {
-            continue;
+            free(path_copy);
+            strncpy(command_found, command, sizeof(command_found) - 1);
+            command_found[sizeof(command_found) - 1] = '\0';
+            return command_found;
         }
 
-        char *path_copy_local = path_copy;
-        char *dir = strtok(path_copy_local, ":");
-        while (dir != NULL)
-        {
-            char cmd_path[256];
-            snprintf(cmd_path, sizeof(cmd_path), "%s/%s", dir, managers[i]);
-
-            if (access(cmd_path, X_OK) == 0)
-            {
-                free(path_copy);
-                strncpy(command_found, managers[i], sizeof(command_found) - 1);
-                command_found[sizeof(command_found) - 1] = '\0';
-                return command_found;
-            }
-
-            path_copy_local = NULL;
-            dir = strtok(path_copy_local, ":");
-        }
+        dir = strtok(NULL, ":");
     }
 
     free(path_copy);
+    return NULL;
+}
+
+static const char *
+pick_clipboard_manager(void)
+{
+    const char *session_type = getenv("XDG_SESSION_TYPE");
+    const bool is_x11_session = session_type && strcmp(session_type, "x11") == 0;
+    const bool is_wayland_session = session_type && strcmp(session_type, "wayland") == 0;
+    const bool has_display = getenv("DISPLAY") != NULL;
+    const bool has_wayland_display = getenv("WAYLAND_DISPLAY") != NULL;
+
+    const char *preferred_managers[6];
+    size_t manager_count = 0;
+
+    if (is_x11_session)
+    {
+        preferred_managers[manager_count++] = "xclip";
+        preferred_managers[manager_count++] = "xsel";
+    }
+    else if (is_wayland_session)
+    {
+        preferred_managers[manager_count++] = "wl-copy";
+    }
+    else
+    {
+        if (has_display)
+        {
+            preferred_managers[manager_count++] = "xclip";
+            preferred_managers[manager_count++] = "xsel";
+        }
+        if (has_wayland_display)
+        {
+            preferred_managers[manager_count++] = "wl-copy";
+        }
+    }
+
+    preferred_managers[manager_count++] = "pbcopy";
+    preferred_managers[manager_count++] = "clip.exe";
+    preferred_managers[manager_count++] = "fish_clipboard_copy";
+
+    for (size_t i = 0; i < manager_count; i++)
+    {
+        const char *resolved = find_command_in_path(preferred_managers[i]);
+        if (resolved)
+        {
+            return resolved;
+        }
+    }
 
     return NULL;
+}
+
+static const char *
+detect_clipboard_manager(void)
+{
+    static char command_found[64] = { 0 };
+
+    if (command_found[0] != '\0')
+    {
+        return command_found;
+    }
+
+    const char *manager = pick_clipboard_manager();
+    if (!manager)
+    {
+        return NULL;
+    }
+
+    strncpy(command_found, manager, sizeof(command_found) - 1);
+    command_found[sizeof(command_found) - 1] = '\0';
+    return command_found;
 }
 
 const char *
