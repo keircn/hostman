@@ -24,8 +24,19 @@
 #define EXIT_FILE_ERROR 4
 #define EXIT_CONFIG_ERROR 5
 
+#define OPT_GLOBAL_JSON 1000
+#define OPT_GLOBAL_VERBOSE 1001
+#define OPT_GLOBAL_NO_COLOR 1002
+
 static bool use_color = true;
 static output_mode_t current_output_mode = OUTPUT_NORMAL;
+
+static bool
+is_global_option(const char *arg)
+{
+    return strcmp(arg, "--json") == 0 || strcmp(arg, "--quiet") == 0 || strcmp(arg, "-q") == 0 ||
+           strcmp(arg, "--verbose") == 0 || strcmp(arg, "--no-color") == 0;
+}
 
 static void
 init_color_support(void)
@@ -135,6 +146,10 @@ print_command_help(const char *command)
         print_section_header("GENERAL OPTIONS");
         print_option("--version, -v", "Display version information");
         print_option("--help, -h", "Display this help message");
+        print_option("--quiet, -q", "Quiet output mode (works before or after command)");
+        print_option("--json", "JSON output mode (works before or after command)");
+        print_option("--verbose", "Verbose output mode (works before or after command)");
+        print_option("--no-color", "Disable colored output (works before or after command)");
         printf("\n");
 
         print_section_header("COMMANDS");
@@ -167,6 +182,8 @@ print_command_help(const char *command)
         print_section_header("USAGE");
         printf("  hostman upload [options] <file_path> [file_path...]\n");
         printf("  hostman upload [options] --directory <path>\n\n");
+        printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
+               "after the command.\n\n");
 
         print_section_header("OPTIONS");
         print_option("--host <name>",
@@ -194,6 +211,8 @@ print_command_help(const char *command)
 
         print_section_header("USAGE");
         printf("  hostman list-uploads [options]\n\n");
+        printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
+               "after the command.\n\n");
 
         print_section_header("OPTIONS");
         print_option("--host <name>", "Filter uploads by host");
@@ -210,6 +229,8 @@ print_command_help(const char *command)
 
         print_section_header("USAGE");
         printf("  hostman delete-upload <id>\n\n");
+        printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
+               "after the command.\n\n");
 
         print_section_header("OPTIONS");
         print_option("--help", "Show this help message");
@@ -223,6 +244,8 @@ print_command_help(const char *command)
 
         print_section_header("USAGE");
         printf("  hostman delete-file <id>\n\n");
+        printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
+               "after the command.\n\n");
 
         print_section_header("OPTIONS");
         print_option("--help", "Show this help message");
@@ -236,6 +259,8 @@ print_command_help(const char *command)
 
         print_section_header("USAGE");
         printf("  hostman list-hosts [options]\n\n");
+        printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
+               "after the command.\n\n");
 
         print_section_header("OPTIONS");
         print_option("--help", "Show this help message");
@@ -249,6 +274,8 @@ print_command_help(const char *command)
 
         print_section_header("USAGE");
         printf("  hostman add-host [options]\n\n");
+        printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
+               "after the command.\n\n");
 
         print_section_header("OPTIONS");
         print_option("--help", "Show this help message");
@@ -262,6 +289,8 @@ print_command_help(const char *command)
 
         print_section_header("USAGE");
         printf("  hostman import-host <sxcu_file>\n\n");
+        printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
+               "after the command.\n\n");
 
         print_section_header("OPTIONS");
         print_option("--help", "Show this help message");
@@ -283,6 +312,8 @@ print_command_help(const char *command)
 
         print_section_header("USAGE");
         printf("  hostman remove-host <host_name> [options]\n\n");
+        printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
+               "after the command.\n\n");
 
         print_section_header("OPTIONS");
         print_option("--help", "Show this help message");
@@ -296,6 +327,8 @@ print_command_help(const char *command)
 
         print_section_header("USAGE");
         printf("  hostman set-default-host <host_name> [options]\n\n");
+        printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
+               "after the command.\n\n");
 
         print_section_header("OPTIONS");
         print_option("--help", "Show this help message");
@@ -311,6 +344,8 @@ print_command_help(const char *command)
         printf("  hostman config                     Interactive configuration editor\n");
         printf("  hostman config get <key>           Get a configuration value\n");
         printf("  hostman config set <key> <value>   Set a configuration value\n\n");
+        printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
+               "after the command.\n\n");
 
         print_section_header("OPTIONS");
         print_option("--help", "Show this help message");
@@ -399,19 +434,40 @@ parse_args(int argc, char *argv[])
     {
         args.type = CMD_LIST_HOSTS;
 
-        static struct option long_options[] = { { "help", no_argument, 0, '?' }, { 0, 0, 0, 0 } };
+        static struct option long_options[] = { { "help", no_argument, 0, '?' },
+                                                { "quiet", no_argument, 0, 'q' },
+                                                { "json", no_argument, 0, OPT_GLOBAL_JSON },
+                                                { "verbose", no_argument, 0, OPT_GLOBAL_VERBOSE },
+                                                { "no-color", no_argument, 0, OPT_GLOBAL_NO_COLOR },
+                                                { 0, 0, 0, 0 } };
 
         int option_index = 0;
         int c;
         optind = cmd_index + 1;
 
-        while ((c = getopt_long(argc, argv, "", long_options, &option_index)) != -1)
+        while ((c = getopt_long(argc, argv, "q", long_options, &option_index)) != -1)
         {
             switch (c)
             {
                 case '?':
                     print_command_help("list-hosts");
                     exit(EXIT_SUCCESS);
+                case 'q':
+                    args.output_mode = OUTPUT_QUIET;
+                    current_output_mode = OUTPUT_QUIET;
+                    break;
+                case OPT_GLOBAL_JSON:
+                    args.output_mode = OUTPUT_JSON;
+                    current_output_mode = OUTPUT_JSON;
+                    use_color = false;
+                    break;
+                case OPT_GLOBAL_VERBOSE:
+                    args.output_mode = OUTPUT_VERBOSE;
+                    current_output_mode = OUTPUT_VERBOSE;
+                    break;
+                case OPT_GLOBAL_NO_COLOR:
+                    use_color = false;
+                    break;
                 default:
                     break;
             }
@@ -421,19 +477,40 @@ parse_args(int argc, char *argv[])
     {
         args.type = CMD_DELETE_UPLOAD;
 
-        static struct option long_options[] = { { "help", no_argument, 0, '?' }, { 0, 0, 0, 0 } };
+        static struct option long_options[] = { { "help", no_argument, 0, '?' },
+                                                { "quiet", no_argument, 0, 'q' },
+                                                { "json", no_argument, 0, OPT_GLOBAL_JSON },
+                                                { "verbose", no_argument, 0, OPT_GLOBAL_VERBOSE },
+                                                { "no-color", no_argument, 0, OPT_GLOBAL_NO_COLOR },
+                                                { 0, 0, 0, 0 } };
 
         int option_index = 0;
         int c;
         optind = cmd_index + 1;
 
-        while ((c = getopt_long(argc, argv, "", long_options, &option_index)) != -1)
+        while ((c = getopt_long(argc, argv, "q", long_options, &option_index)) != -1)
         {
             switch (c)
             {
                 case '?':
                     print_command_help("delete-upload");
                     exit(EXIT_SUCCESS);
+                case 'q':
+                    args.output_mode = OUTPUT_QUIET;
+                    current_output_mode = OUTPUT_QUIET;
+                    break;
+                case OPT_GLOBAL_JSON:
+                    args.output_mode = OUTPUT_JSON;
+                    current_output_mode = OUTPUT_JSON;
+                    use_color = false;
+                    break;
+                case OPT_GLOBAL_VERBOSE:
+                    args.output_mode = OUTPUT_VERBOSE;
+                    current_output_mode = OUTPUT_VERBOSE;
+                    break;
+                case OPT_GLOBAL_NO_COLOR:
+                    use_color = false;
+                    break;
                 default:
                     break;
             }
@@ -458,19 +535,40 @@ parse_args(int argc, char *argv[])
     {
         args.type = CMD_DELETE_FILE;
 
-        static struct option long_options[] = { { "help", no_argument, 0, '?' }, { 0, 0, 0, 0 } };
+        static struct option long_options[] = { { "help", no_argument, 0, '?' },
+                                                { "quiet", no_argument, 0, 'q' },
+                                                { "json", no_argument, 0, OPT_GLOBAL_JSON },
+                                                { "verbose", no_argument, 0, OPT_GLOBAL_VERBOSE },
+                                                { "no-color", no_argument, 0, OPT_GLOBAL_NO_COLOR },
+                                                { 0, 0, 0, 0 } };
 
         int option_index = 0;
         int c;
         optind = cmd_index + 1;
 
-        while ((c = getopt_long(argc, argv, "", long_options, &option_index)) != -1)
+        while ((c = getopt_long(argc, argv, "q", long_options, &option_index)) != -1)
         {
             switch (c)
             {
                 case '?':
                     print_command_help("delete-file");
                     exit(EXIT_SUCCESS);
+                case 'q':
+                    args.output_mode = OUTPUT_QUIET;
+                    current_output_mode = OUTPUT_QUIET;
+                    break;
+                case OPT_GLOBAL_JSON:
+                    args.output_mode = OUTPUT_JSON;
+                    current_output_mode = OUTPUT_JSON;
+                    use_color = false;
+                    break;
+                case OPT_GLOBAL_VERBOSE:
+                    args.output_mode = OUTPUT_VERBOSE;
+                    current_output_mode = OUTPUT_VERBOSE;
+                    break;
+                case OPT_GLOBAL_NO_COLOR:
+                    use_color = false;
+                    break;
                 default:
                     break;
             }
@@ -535,19 +633,25 @@ parse_args(int argc, char *argv[])
     {
         case CMD_UPLOAD:
         {
-            static struct option long_options[] = { { "host", required_argument, 0, 'h' },
-                                                    { "directory", required_argument, 0, 'd' },
-                                                    { "continue-on-error", no_argument, 0, 'c' },
-                                                    { "throttle", required_argument, 0, 't' },
-                                                    { "no-clipboard", no_argument, 0, 'n' },
-                                                    { "help", no_argument, 0, '?' },
-                                                    { 0, 0, 0, 0 } };
+            static struct option long_options[] = {
+                { "host", required_argument, 0, 'h' },
+                { "directory", required_argument, 0, 'd' },
+                { "continue-on-error", no_argument, 0, 'c' },
+                { "throttle", required_argument, 0, 't' },
+                { "no-clipboard", no_argument, 0, 'n' },
+                { "quiet", no_argument, 0, 'q' },
+                { "json", no_argument, 0, OPT_GLOBAL_JSON },
+                { "verbose", no_argument, 0, OPT_GLOBAL_VERBOSE },
+                { "no-color", no_argument, 0, OPT_GLOBAL_NO_COLOR },
+                { "help", no_argument, 0, '?' },
+                { 0, 0, 0, 0 }
+            };
 
             int option_index = 0;
             int c;
             optind = cmd_index + 1;
 
-            while ((c = getopt_long(argc, argv, "h:d:ct:n", long_options, &option_index)) != -1)
+            while ((c = getopt_long(argc, argv, "h:d:ct:nq", long_options, &option_index)) != -1)
             {
                 switch (c)
                 {
@@ -567,6 +671,22 @@ parse_args(int argc, char *argv[])
                         break;
                     case 'n':
                         args.no_clipboard = true;
+                        break;
+                    case 'q':
+                        args.output_mode = OUTPUT_QUIET;
+                        current_output_mode = OUTPUT_QUIET;
+                        break;
+                    case OPT_GLOBAL_JSON:
+                        args.output_mode = OUTPUT_JSON;
+                        current_output_mode = OUTPUT_JSON;
+                        use_color = false;
+                        break;
+                    case OPT_GLOBAL_VERBOSE:
+                        args.output_mode = OUTPUT_VERBOSE;
+                        current_output_mode = OUTPUT_VERBOSE;
+                        break;
+                    case OPT_GLOBAL_NO_COLOR:
+                        use_color = false;
                         break;
                     case '?':
                         print_command_help("upload");
@@ -661,17 +781,23 @@ parse_args(int argc, char *argv[])
 
         case CMD_LIST_UPLOADS:
         {
-            static struct option long_options[] = { { "host", required_argument, 0, 'h' },
-                                                    { "page", required_argument, 0, 'p' },
-                                                    { "limit", required_argument, 0, 'l' },
-                                                    { "help", no_argument, 0, '?' },
-                                                    { 0, 0, 0, 0 } };
+            static struct option long_options[] = {
+                { "host", required_argument, 0, 'h' },
+                { "page", required_argument, 0, 'p' },
+                { "limit", required_argument, 0, 'l' },
+                { "quiet", no_argument, 0, 'q' },
+                { "json", no_argument, 0, OPT_GLOBAL_JSON },
+                { "verbose", no_argument, 0, OPT_GLOBAL_VERBOSE },
+                { "no-color", no_argument, 0, OPT_GLOBAL_NO_COLOR },
+                { "help", no_argument, 0, '?' },
+                { 0, 0, 0, 0 }
+            };
 
             int option_index = 0;
             int c;
             optind = cmd_index + 1;
 
-            while ((c = getopt_long(argc, argv, "h:p:l:", long_options, &option_index)) != -1)
+            while ((c = getopt_long(argc, argv, "h:p:l:q", long_options, &option_index)) != -1)
             {
                 switch (c)
                 {
@@ -687,6 +813,22 @@ parse_args(int argc, char *argv[])
                         args.limit = atoi(optarg);
                         if (args.limit < 1)
                             args.limit = 1;
+                        break;
+                    case 'q':
+                        args.output_mode = OUTPUT_QUIET;
+                        current_output_mode = OUTPUT_QUIET;
+                        break;
+                    case OPT_GLOBAL_JSON:
+                        args.output_mode = OUTPUT_JSON;
+                        current_output_mode = OUTPUT_JSON;
+                        use_color = false;
+                        break;
+                    case OPT_GLOBAL_VERBOSE:
+                        args.output_mode = OUTPUT_VERBOSE;
+                        current_output_mode = OUTPUT_VERBOSE;
+                        break;
+                    case OPT_GLOBAL_NO_COLOR:
+                        use_color = false;
                         break;
                     case '?':
                         print_command_help("list-uploads");
@@ -710,9 +852,15 @@ parse_args(int argc, char *argv[])
 
         case CMD_IMPORT_HOST:
         {
-            if (cmd_index + 1 < argc)
+            int arg_index = cmd_index + 1;
+            while (arg_index < argc && is_global_option(argv[arg_index]))
             {
-                args.import_file = strdup(argv[cmd_index + 1]);
+                arg_index++;
+            }
+
+            if (arg_index < argc)
+            {
+                args.import_file = strdup(argv[arg_index]);
             }
             else
             {
@@ -724,9 +872,15 @@ parse_args(int argc, char *argv[])
 
         case CMD_REMOVE_HOST:
         {
-            if (cmd_index + 1 < argc)
+            int arg_index = cmd_index + 1;
+            while (arg_index < argc && is_global_option(argv[arg_index]))
             {
-                args.host_name = strdup(argv[cmd_index + 1]);
+                arg_index++;
+            }
+
+            if (arg_index < argc)
+            {
+                args.host_name = strdup(argv[arg_index]);
             }
             else
             {
@@ -738,9 +892,15 @@ parse_args(int argc, char *argv[])
 
         case CMD_SET_DEFAULT_HOST:
         {
-            if (cmd_index + 1 < argc)
+            int arg_index = cmd_index + 1;
+            while (arg_index < argc && is_global_option(argv[arg_index]))
             {
-                args.host_name = strdup(argv[cmd_index + 1]);
+                arg_index++;
+            }
+
+            if (arg_index < argc)
+            {
+                args.host_name = strdup(argv[arg_index]);
             }
             else
             {
@@ -753,12 +913,21 @@ parse_args(int argc, char *argv[])
         case CMD_CONFIG:
         {
             int cfg_idx = cmd_index + 1;
+            while (cfg_idx < argc && is_global_option(argv[cfg_idx]))
+            {
+                cfg_idx++;
+            }
+
             if (cfg_idx < argc)
             {
                 if (strcmp(argv[cfg_idx], "get") == 0)
                 {
                     args.config_get = true;
                     cfg_idx++;
+                    while (cfg_idx < argc && is_global_option(argv[cfg_idx]))
+                    {
+                        cfg_idx++;
+                    }
                     if (cfg_idx < argc)
                     {
                         args.config_key = strdup(argv[cfg_idx]);
@@ -773,10 +942,18 @@ parse_args(int argc, char *argv[])
                 {
                     args.config_get = false;
                     cfg_idx++;
+                    while (cfg_idx < argc && is_global_option(argv[cfg_idx]))
+                    {
+                        cfg_idx++;
+                    }
                     if (cfg_idx < argc)
                     {
                         args.config_key = strdup(argv[cfg_idx]);
                         cfg_idx++;
+                        while (cfg_idx < argc && is_global_option(argv[cfg_idx]))
+                        {
+                            cfg_idx++;
+                        }
                         if (cfg_idx < argc)
                         {
                             args.config_value = strdup(argv[cfg_idx]);
