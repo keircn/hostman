@@ -13,6 +13,76 @@
 
 static bool use_color = true;
 
+static host_preset_t presets[] = {
+    {
+        .name = "imgbb",
+        .display_name = "ImgBB",
+        .description = "Free image hosting with 160MB limit (requires API key)",
+        .api_endpoint = "https://api.imgbb.com/1/upload",
+        .auth_type = "param",
+        .api_key_name = "key",
+        .request_body_format = "multipart",
+        .file_form_field = "image",
+        .response_url_json_path = "data.url",
+        .response_deletion_url_json_path = "",
+        .requires_api_key = true,
+    },
+    {
+        .name = "imgur",
+        .display_name = "Imgur",
+        .description = "Free image hosting via Imgur API (requires API key)",
+        .api_endpoint = "https://api.imgur.com/3/image",
+        .auth_type = "bearer",
+        .api_key_name = "Authorization",
+        .request_body_format = "multipart",
+        .file_form_field = "image",
+        .response_url_json_path = "data.link",
+        .response_deletion_url_json_path = "data.deletehash",
+        .requires_api_key = true,
+    },
+    {
+        .name = "smms",
+        .display_name = "SM.MS",
+        .description = "Free image hosting, no API key required",
+        .api_endpoint = "https://smms.app/webapi/upload.php",
+        .auth_type = "none",
+        .api_key_name = "",
+        .request_body_format = "multipart",
+        .file_form_field = "smfile",
+        .response_url_json_path = "data.url",
+        .response_deletion_url_json_path = "data.hash",
+        .requires_api_key = false,
+    },
+    {
+        .name = "0x0.st",
+        .display_name = "0x0.st",
+        .description = "Simple file hosting (HTTP only, no auth)",
+        .api_endpoint = "https://0x0.st",
+        .auth_type = "none",
+        .api_key_name = "",
+        .request_body_format = "multipart",
+        .file_form_field = "file",
+        .response_url_json_path = "raw",
+        .response_deletion_url_json_path = "",
+        .requires_api_key = false,
+    },
+    {
+        .name = "fileio",
+        .display_name = "File.io",
+        .description = "File sharing with auto-expire (no auth)",
+        .api_endpoint = "https://file.io",
+        .auth_type = "none",
+        .api_key_name = "",
+        .request_body_format = "multipart",
+        .file_form_field = "file",
+        .response_url_json_path = "link",
+        .response_deletion_url_json_path = "",
+        .requires_api_key = false,
+    },
+};
+
+static int preset_count = sizeof(presets) / sizeof(presets[0]);
+
 static void
 init_color(void)
 {
@@ -918,6 +988,172 @@ config_edit_interactive(void)
             print_error_msg("Unknown option.");
         }
     }
+
+    return EXIT_SUCCESS;
+}
+
+int
+hosts_import_sxcu(const char *file_path);
+int
+hosts_list_presets(void)
+{
+    init_color();
+
+    print_menu_header("Available Host Presets");
+
+    printf("\n\033[1m%-15s %-20s %-40s %s\033[0m\n",
+           "Name",
+           "Display Name",
+           "Description",
+           "API Key Required");
+    printf("%-15s %-20s %-40s %s\n",
+           "---------------",
+           "--------------------",
+           "----------------------------------------",
+           "-----------------");
+
+    for (int i = 0; i < preset_count; i++)
+    {
+        printf("\033[0;36m%-15s\033[0m \033[1;33m%-20s\033[0m %-40s %s\n",
+               presets[i].name,
+               presets[i].display_name,
+               presets[i].description,
+               presets[i].requires_api_key ? "Yes" : "No");
+    }
+
+    printf("\n");
+    printf("To add a preset, run: hostman add-preset <preset_name>\n");
+    printf("Example: hostman add-preset imgbb\n");
+    printf("\n");
+
+    return EXIT_SUCCESS;
+}
+
+static host_preset_t *
+find_preset(const char *name)
+{
+    if (!name)
+    {
+        return NULL;
+    }
+
+    for (int i = 0; i < preset_count; i++)
+    {
+        if (strcmp(presets[i].name, name) == 0)
+        {
+            return &presets[i];
+        }
+    }
+
+    return NULL;
+}
+
+int
+hosts_add_preset(const char *preset_name)
+{
+    init_color();
+
+    if (!preset_name)
+    {
+        print_error_msg("Error: Preset name required\n");
+        printf("Run 'hostman list-presets' to see available presets.\n");
+        return EXIT_FAILURE;
+    }
+
+    host_preset_t *preset = find_preset(preset_name);
+    if (!preset)
+    {
+        print_error_msg("Error: Preset not found");
+        printf("Run 'hostman list-presets' to see available presets.\n");
+        return EXIT_FAILURE;
+    }
+
+    host_config_t *existing = config_get_host(preset->name);
+    if (existing)
+    {
+        print_error_msg("Error: Host already exists");
+        printf("Remove it first with: hostman remove-host %s\n", preset->name);
+        return EXIT_FAILURE;
+    }
+
+    char *api_key = NULL;
+    char *api_key_name = NULL;
+
+    if (preset->requires_api_key)
+    {
+        printf("The '%s' preset requires an API key.\n", preset->display_name);
+        api_key_name = strdup(preset->api_key_name);
+        api_key = read_input("Enter your API key: ", true);
+
+        if (!api_key)
+        {
+            print_error_msg("Error: Failed to read API key\n");
+            return EXIT_FAILURE;
+        }
+    }
+
+    printf("\nAdding host '%s' with preset '%s'...\n", preset->name, preset->display_name);
+    printf("(You can change the host name during configuration if desired)\n");
+
+    char *host_name = read_input_default("Host name (press Enter to use preset name)", preset->name);
+    if (!host_name)
+    {
+        host_name = strdup(preset->name);
+    }
+
+    if (config_get_host(host_name))
+    {
+        print_error_msg("Error: Host name already exists");
+        free(host_name);
+        free(api_key);
+        free(api_key_name);
+        return EXIT_FAILURE;
+    }
+
+    bool result = hosts_add(host_name,
+                  preset->api_endpoint,
+                  preset->auth_type,
+                  api_key_name,
+                  api_key,
+                  preset->request_body_format,
+                  preset->file_form_field,
+                  preset->response_url_json_path,
+                  preset->response_deletion_url_json_path,
+                  NULL,
+                  NULL,
+                  0);
+
+    if (!result)
+    {
+        print_error_msg("Error: Failed to add host configuration\n");
+        free(host_name);
+        free(api_key);
+        free(api_key_name);
+        return EXIT_FAILURE;
+    }
+
+    hostman_config_t *config = config_load();
+    if (!config->default_host || config->host_count == 1)
+    {
+        char yn_buffer[10];
+        printf("Set '%s' as the default host? [Y/n]: ", host_name);
+        fflush(stdout);
+        if (fgets(yn_buffer, sizeof(yn_buffer), stdin) != NULL)
+        {
+            yn_buffer[strcspn(yn_buffer, "\n")] = 0;
+            if (strcasecmp(yn_buffer, "n") != 0 && strcasecmp(yn_buffer, "no") != 0)
+            {
+                config_set_default_host(host_name);
+            }
+        }
+    }
+
+    free(host_name);
+    free(api_key);
+    free(api_key_name);
+
+print_success_msg("Host configuration added successfully!");
+    printf("Use 'hostman upload <file>' to upload files.\n");
 
     return EXIT_SUCCESS;
 }

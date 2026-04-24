@@ -161,7 +161,10 @@ print_command_help(const char *command)
         print_command_syntax("delete-file", "<id>"),
           printf("   Delete a file from the remote host\n");
         print_command_syntax("list-hosts", ""), printf("   List configured hosts\n");
+        print_command_syntax("list-presets", ""), printf("   List available host presets\n");
         print_command_syntax("add-host", ""), printf("   Add a new host configuration\n");
+        print_command_syntax("add-preset", "<preset_name>"),
+          printf("   Add a host from preset\n");
         print_command_syntax("import-host", "<sxcu_file>"),
           printf("   Import host from ShareX SXCU file\n");
         print_command_syntax("remove-host", "<name>"), printf("   Remove a host configuration\n");
@@ -302,6 +305,49 @@ print_command_help(const char *command)
         print_section_header("EXAMPLES");
         printf("  hostman import-host myhost.sxcu\n");
         printf("  hostman import-host ~/Downloads/uploader.sxcu\n");
+        return;
+    }
+
+    if (strcmp(command, "list-presets") == 0)
+    {
+        print_section_header("LIST-PRESETS");
+        printf("List available host presets\n\n");
+
+        print_section_header("USAGE");
+        printf("  hostman list-presets [options]\n\n");
+        printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
+               "after the command.\n\n");
+
+        print_section_header("DESCRIPTION");
+        printf("  Shows a list of pre-configured host presets that can be added easily.\n");
+        printf("  Presets include popular image hosting services like ImgBB, Imgur, SM.MS, etc.\n\n");
+
+        print_section_header("OPTIONS");
+        print_option("--help", "Show this help message");
+        return;
+    }
+
+    if (strcmp(command, "add-preset") == 0)
+    {
+        print_section_header("ADD-PRESET");
+        printf("Add a host configuration from a preset\n\n");
+
+        print_section_header("USAGE");
+        printf("  hostman add-preset <preset_name> [options]\n\n");
+        printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
+               "after the command.\n\n");
+
+        print_section_header("DESCRIPTION");
+        printf("  Adds a host configuration using a pre-defined preset.\n");
+        printf("  Some presets require an API key, which you'll be prompted to enter.\n\n");
+
+        print_section_header("OPTIONS");
+        print_option("--help", "Show this help message");
+
+        print_section_header("EXAMPLES");
+        printf("  hostman add-preset imgbb\n");
+        printf("  hostman add-preset imgur\n");
+        printf("  hostman add-preset smms\n");
         return;
     }
 
@@ -597,6 +643,14 @@ parse_args(int argc, char *argv[])
     {
         args.type = CMD_IMPORT_HOST;
     }
+    else if (strcmp(argv[cmd_index], "list-presets") == 0)
+    {
+        args.type = CMD_LIST_PRESETS;
+    }
+    else if (strcmp(argv[cmd_index], "add-preset") == 0)
+    {
+        args.type = CMD_ADD_PRESET;
+    }
     else if (strcmp(argv[cmd_index], "remove-host") == 0)
     {
         args.type = CMD_REMOVE_HOST;
@@ -865,6 +919,32 @@ parse_args(int argc, char *argv[])
             else
             {
                 print_error("Error: SXCU file path required\n");
+                args.type = CMD_UNKNOWN;
+            }
+            break;
+        }
+
+        case CMD_LIST_PRESETS:
+        {
+            break;
+        }
+
+        case CMD_ADD_PRESET:
+        {
+            int arg_index = cmd_index + 1;
+            while (arg_index < argc && is_global_option(argv[arg_index]))
+            {
+                arg_index++;
+            }
+
+            if (arg_index < argc)
+            {
+                args.preset_name = strdup(argv[arg_index]);
+            }
+            else
+            {
+                print_error("Error: Preset name required\n");
+                printf("Run 'hostman list-presets' to see available presets.\n");
                 args.type = CMD_UNKNOWN;
             }
             break;
@@ -1446,6 +1526,22 @@ execute_command(command_args_t *args)
                 return EXIT_INVALID_ARGS;
             }
             return hosts_import_sxcu(args->import_file);
+        }
+
+        case CMD_LIST_PRESETS:
+        {
+            return hosts_list_presets();
+        }
+
+        case CMD_ADD_PRESET:
+        {
+            if (!args->preset_name)
+            {
+                print_error("Error: Preset name required\n");
+                printf("Run 'hostman list-presets' to see available presets.\n");
+                return EXIT_INVALID_ARGS;
+            }
+            return hosts_add_preset(args->preset_name);
         }
 
         case CMD_REMOVE_HOST:
