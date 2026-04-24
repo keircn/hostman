@@ -46,6 +46,9 @@ set(HOSTMAN_CORE_SOURCES
     src/core/logging.c
     src/core/utils.c)
 
+set(HOSTMAN_UI_SOURCES
+    src/ui/ui.c)
+
 set(HOSTMAN_CLI_SOURCES
     src/cli/cli.c
     src/cli/tui.c)
@@ -63,6 +66,7 @@ set(HOSTMAN_STORAGE_SOURCES
 set(HOSTMAN_SOURCES
     src/main.c
     ${HOSTMAN_CORE_SOURCES}
+    ${HOSTMAN_UI_SOURCES}
     ${HOSTMAN_CLI_SOURCES}
     ${HOSTMAN_NETWORK_SOURCES}
     ${HOSTMAN_CRYPTO_SOURCES}
@@ -94,6 +98,8 @@ endif()
 
 install(TARGETS hostman DESTINATION bin)
 install(DIRECTORY include/hostman DESTINATION include)
+install(DIRECTORY include/hostman/ui DESTINATION include/hostman)
+install(FILES man/hostman.1 DESTINATION share/man/man1)
 
 option(BUILD_DOCS "Build documentation" OFF)
 if(BUILD_DOCS)

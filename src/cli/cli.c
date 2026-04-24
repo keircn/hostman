@@ -52,9 +52,7 @@ print_section_header(const char *text)
 {
     if (use_color)
     {
-        printf(
-          "\033[1;36m┌─ %s ───────────────────────────────────────────────────────────┐\033[0m\n",
-          text);
+        printf("\033[1;36m--- %s ---\033[0m\n", text);
     }
     else
     {
@@ -154,26 +152,12 @@ print_command_help(const char *command)
 
         print_section_header("COMMANDS");
         print_command_syntax("upload", "<file_path> [file_path...]"),
-          printf("   Upload one or more files to a hosting service\n");
-        print_command_syntax("list-uploads", ""), printf("   List upload history\n");
-        print_command_syntax("delete-upload", "<id>"),
-          printf("   Delete an upload record from history\n");
-        print_command_syntax("delete-file", "<id>"),
-          printf("   Delete a file from the remote host\n");
+          printf("   Upload one or more files\n");
         print_command_syntax("list-hosts", ""), printf("   List configured hosts\n");
-        print_command_syntax("list-presets", ""), printf("   List available host presets\n");
         print_command_syntax("add-host", ""), printf("   Add a new host configuration\n");
-        print_command_syntax("add-preset", "<preset_name>"),
-          printf("   Add a host from preset\n");
-        print_command_syntax("import-host", "<sxcu_file>"),
-          printf("   Import host from ShareX SXCU file\n");
-        print_command_syntax("remove-host", "<name>"), printf("   Remove a host configuration\n");
-        print_command_syntax("set-default-host", "<name>"), printf("   Set the default host\n");
         print_command_syntax("config", "<get|set> <key> [value]"),
           printf("   View or modify configuration\n");
         print_command_syntax("help", "[command]"), printf("   Show help for a specific command\n");
-
-        printf("\nFor more information about a specific command, run: hostman help <command>\n");
         return;
     }
 
@@ -320,7 +304,8 @@ print_command_help(const char *command)
 
         print_section_header("DESCRIPTION");
         printf("  Shows a list of pre-configured host presets that can be added easily.\n");
-        printf("  Presets include popular image hosting services like ImgBB, Imgur, SM.MS, etc.\n\n");
+        printf(
+          "  Presets include popular image hosting services like ImgBB, Imgur, SM.MS, etc.\n\n");
 
         print_section_header("OPTIONS");
         print_option("--help", "Show this help message");
@@ -347,7 +332,7 @@ print_command_help(const char *command)
         print_section_header("EXAMPLES");
         printf("  hostman add-preset imgbb\n");
         printf("  hostman add-preset imgur\n");
-        printf("  hostman add-preset smms\n");
+        printf("  hostman add-preset 0x0.st\n");
         return;
     }
 
@@ -1506,7 +1491,7 @@ execute_command(command_args_t *args)
                 printf("\033[0;36m%-20s\033[0m %-40s %s\n",
                        config->hosts[i]->name,
                        config->hosts[i]->api_endpoint,
-                       is_default ? "\033[1;32m✓ Yes\033[0m" : "No");
+                       is_default ? "\033[1;32mYes\033[0m" : "No");
             }
 
             config_free(config);

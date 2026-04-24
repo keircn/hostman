@@ -5,6 +5,7 @@
 #include "hostman/crypto/encryption.h"
 #include "hostman/network/network.h"
 #include "hostman/storage/database.h"
+#include "hostman/ui/ui.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,8 @@
 int
 main(int argc, char *argv[])
 {
+    ui_init(&argc, argv);
+
     if (argc > 1 && (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0))
     {
         print_version_info();

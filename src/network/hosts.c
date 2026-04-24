@@ -2,6 +2,7 @@
 #include "hostman/core/config.h"
 #include "hostman/core/logging.h"
 #include "hostman/crypto/encryption.h"
+#include "hostman/ui/ui.h"
 #include <cjson/cJSON.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -11,73 +12,60 @@
 
 #define MAX_INPUT_LENGTH 512
 
-static bool use_color = true;
+#define use_color (ui_context()->use_color)
 
 static host_preset_t presets[] = {
     {
-        .name = "imgbb",
-        .display_name = "ImgBB",
-        .description = "Free image hosting with 160MB limit (requires API key)",
-        .api_endpoint = "https://api.imgbb.com/1/upload",
-        .auth_type = "param",
-        .api_key_name = "key",
-        .request_body_format = "multipart",
-        .file_form_field = "image",
-        .response_url_json_path = "data.url",
-        .response_deletion_url_json_path = "",
-        .requires_api_key = true,
+      .name = "imgbb",
+      .display_name = "ImgBB",
+      .description = "Free image hosting with 160MB limit (requires API key)",
+      .api_endpoint = "https://api.imgbb.com/1/upload",
+      .auth_type = "param",
+      .api_key_name = "key",
+      .request_body_format = "multipart",
+      .file_form_field = "image",
+      .response_url_json_path = "data.url",
+      .response_deletion_url_json_path = "",
+      .requires_api_key = true,
     },
     {
-        .name = "imgur",
-        .display_name = "Imgur",
-        .description = "Free image hosting via Imgur API (requires API key)",
-        .api_endpoint = "https://api.imgur.com/3/image",
-        .auth_type = "bearer",
-        .api_key_name = "Authorization",
-        .request_body_format = "multipart",
-        .file_form_field = "image",
-        .response_url_json_path = "data.link",
-        .response_deletion_url_json_path = "data.deletehash",
-        .requires_api_key = true,
-    },
-    {
-        .name = "smms",
-        .display_name = "SM.MS",
-        .description = "Free image hosting, no API key required",
-        .api_endpoint = "https://smms.app/webapi/upload.php",
-        .auth_type = "none",
-        .api_key_name = "",
-        .request_body_format = "multipart",
-        .file_form_field = "smfile",
-        .response_url_json_path = "data.url",
-        .response_deletion_url_json_path = "data.hash",
-        .requires_api_key = false,
+      .name = "imgur",
+      .display_name = "Imgur",
+      .description = "Free image hosting via Imgur API (requires API key)",
+      .api_endpoint = "https://api.imgur.com/3/image",
+      .auth_type = "bearer",
+      .api_key_name = "Authorization",
+      .request_body_format = "multipart",
+      .file_form_field = "image",
+      .response_url_json_path = "data.link",
+      .response_deletion_url_json_path = "data.deletehash",
+      .requires_api_key = true,
     },
     {
         .name = "0x0.st",
         .display_name = "0x0.st",
         .description = "Simple file hosting (HTTP only, no auth)",
-        .api_endpoint = "https://0x0.st",
-        .auth_type = "none",
-        .api_key_name = "",
-        .request_body_format = "multipart",
-        .file_form_field = "file",
-        .response_url_json_path = "raw",
-        .response_deletion_url_json_path = "",
-        .requires_api_key = false,
+      .api_endpoint = "https://0x0.st",
+      .auth_type = "none",
+      .api_key_name = "",
+      .request_body_format = "multipart",
+      .file_form_field = "file",
+      .response_url_json_path = "raw",
+      .response_deletion_url_json_path = "",
+      .requires_api_key = false,
     },
     {
-        .name = "fileio",
-        .display_name = "File.io",
-        .description = "File sharing with auto-expire (no auth)",
-        .api_endpoint = "https://file.io",
-        .auth_type = "none",
-        .api_key_name = "",
-        .request_body_format = "multipart",
-        .file_form_field = "file",
-        .response_url_json_path = "link",
-        .response_deletion_url_json_path = "",
-        .requires_api_key = false,
+      .name = "fileio",
+      .display_name = "File.io",
+      .description = "File sharing with auto-expire (no auth)",
+      .api_endpoint = "https://file.io",
+      .auth_type = "none",
+      .api_key_name = "",
+      .request_body_format = "multipart",
+      .file_form_field = "file",
+      .response_url_json_path = "link",
+      .response_deletion_url_json_path = "",
+      .requires_api_key = false,
     },
 };
 
@@ -86,10 +74,7 @@ static int preset_count = sizeof(presets) / sizeof(presets[0]);
 static void
 init_color(void)
 {
-    if (getenv("NO_COLOR") != NULL)
-    {
-        use_color = false;
-    }
+    ui_init(NULL, NULL);
 }
 
 static void
@@ -98,134 +83,54 @@ print_menu_header(const char *text)
     init_color();
     if (use_color)
     {
-        printf("\n\033[1;36m=== %s ===\033[0m\n\n", text);
+        printf("\033[1;36m--- %s ---\033[0m\n", text);
     }
     else
     {
-        printf("\n=== %s ===\n\n", text);
+        printf("--- %s ---\n", text);
     }
 }
 
 static void
 print_menu_option(int num, const char *text)
 {
-    if (use_color)
-    {
-        printf("  \033[1;33m%d.\033[0m %s\n", num, text);
-    }
-    else
-    {
-        printf("  %d. %s\n", num, text);
-    }
+    ui_option_num(num, text);
 }
 
 static void
 print_menu_option_str(const char *key, const char *text)
 {
-    if (use_color)
-    {
-        printf("  \033[1;33m%s.\033[0m %s\n", key, text);
-    }
-    else
-    {
-        printf("  %s. %s\n", key, text);
-    }
+    ui_option(key, text);
 }
 
 static void
 print_current_value(const char *label, const char *value)
 {
-    if (use_color)
-    {
-        printf(
-          "  \033[0;37m%-30s\033[0m \033[1;32m%s\033[0m\n", label, value ? value : "(not set)");
-    }
-    else
-    {
-        printf("  %-30s %s\n", label, value ? value : "(not set)");
-    }
+    ui_item(label, value ? value : "(not set)");
 }
 
 static void
 print_success_msg(const char *text)
 {
-    if (use_color)
-    {
-        printf("\033[1;32m%s\033[0m\n", text);
-    }
-    else
-    {
-        printf("%s\n", text);
-    }
+    ui_success("%s\n", text);
 }
 
 static void
 print_error_msg(const char *text)
 {
-    if (use_color)
-    {
-        fprintf(stderr, "\033[1;31m%s\033[0m\n", text);
-    }
-    else
-    {
-        fprintf(stderr, "%s\n", text);
-    }
+    ui_error("%s\n", text);
 }
 
 static char *
 read_input(const char *prompt, bool required)
 {
-    char buffer[MAX_INPUT_LENGTH];
-    char *result = NULL;
-
-    do
-    {
-        printf("%s", prompt);
-        fflush(stdout);
-
-        if (fgets(buffer, sizeof(buffer), stdin) == NULL)
-        {
-            return NULL;
-        }
-
-        buffer[strcspn(buffer, "\n")] = 0;
-
-        if (strlen(buffer) == 0)
-        {
-            if (!required)
-            {
-                return NULL;
-            }
-            printf("This field is required. Please try again.\n");
-            continue;
-        }
-
-        result = strdup(buffer);
-        if (!result)
-        {
-            log_error("Failed to allocate memory for input");
-            return NULL;
-        }
-
-        break;
-    } while (1);
-
-    return result;
+    return ui_read(prompt, required);
 }
 
 static char *
 read_input_default(const char *prompt, const char *default_value)
 {
-    char full_prompt[MAX_INPUT_LENGTH * 2];
-    snprintf(full_prompt, sizeof(full_prompt), "%s [%s]: ", prompt, default_value);
-
-    char *input = read_input(full_prompt, false);
-    if (!input)
-    {
-        return strdup(default_value);
-    }
-
-    return input;
+    return ui_read_default(prompt, default_value);
 }
 
 int
@@ -999,26 +904,15 @@ hosts_list_presets(void)
 {
     init_color();
 
-    print_menu_header("Available Host Presets");
-
-    printf("\n\033[1m%-15s %-20s %-40s %s\033[0m\n",
-           "Name",
-           "Display Name",
-           "Description",
-           "API Key Required");
-    printf("%-15s %-20s %-40s %s\n",
-           "---------------",
-           "--------------------",
-           "----------------------------------------",
-           "-----------------");
+    printf("\n\033[1m%-15s %-20s %s\033[0m\n", "Name", "Display Name", "Description");
+    printf("%-15s %-20s %s\n", "---------------", "--------------------", "----------------------------------------");
 
     for (int i = 0; i < preset_count; i++)
     {
-        printf("\033[0;36m%-15s\033[0m \033[1;33m%-20s\033[0m %-40s %s\n",
+        printf("\033[0;36m%-15s\033[0m \033[1;33m%-20s\033[0m %s\n",
                presets[i].name,
                presets[i].display_name,
-               presets[i].description,
-               presets[i].requires_api_key ? "Yes" : "No");
+               presets[i].description);
     }
 
     printf("\n");
@@ -1095,7 +989,8 @@ hosts_add_preset(const char *preset_name)
     printf("\nAdding host '%s' with preset '%s'...\n", preset->name, preset->display_name);
     printf("(You can change the host name during configuration if desired)\n");
 
-    char *host_name = read_input_default("Host name (press Enter to use preset name)", preset->name);
+    char *host_name =
+      read_input_default("Host name (press Enter to use preset name)", preset->name);
     if (!host_name)
     {
         host_name = strdup(preset->name);
@@ -1111,17 +1006,17 @@ hosts_add_preset(const char *preset_name)
     }
 
     bool result = hosts_add(host_name,
-                  preset->api_endpoint,
-                  preset->auth_type,
-                  api_key_name,
-                  api_key,
-                  preset->request_body_format,
-                  preset->file_form_field,
-                  preset->response_url_json_path,
-                  preset->response_deletion_url_json_path,
-                  NULL,
-                  NULL,
-                  0);
+                            preset->api_endpoint,
+                            preset->auth_type,
+                            api_key_name,
+                            api_key,
+                            preset->request_body_format,
+                            preset->file_form_field,
+                            preset->response_url_json_path,
+                            preset->response_deletion_url_json_path,
+                            NULL,
+                            NULL,
+                            0);
 
     if (!result)
     {
@@ -1152,7 +1047,7 @@ hosts_add_preset(const char *preset_name)
     free(api_key);
     free(api_key_name);
 
-print_success_msg("Host configuration added successfully!");
+    print_success_msg("Host configuration added successfully!");
     printf("Use 'hostman upload <file>' to upload files.\n");
 
     return EXIT_SUCCESS;
