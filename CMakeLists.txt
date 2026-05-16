@@ -28,8 +28,12 @@ if(WIN32)
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(CJSON REQUIRED libcjson)
-    set(JSON_LIBRARY ${CJSON_LIBRARIES})
-    set(JSON_INCLUDE_DIR ${CJSON_INCLUDE_DIRS})
+    add_library(cJSON::cJSON UNKNOWN IMPORTED)
+
+    set_target_properties(cJSON::cJSON PROPERTIES
+        IMPORTED_LOCATION "${CJSON_LIBDIR}/libcjson.so"
+        INTERFACE_INCLUDE_DIRECTORIES "${CJSON_INCLUDE_DIRS}"
+    )
 endif()
 
 if(HOSTMAN_USE_TUI)
@@ -87,7 +91,7 @@ add_executable(hostman ${HOSTMAN_SOURCES})
 target_link_libraries(hostman
     ${CURL_LIBRARIES}
     SQLite::SQLite3
-    ${JSON_LIBRARY}
+    cJSON::cJSON
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     m)
@@ -119,18 +123,18 @@ endif()
 find_program(CLANG_FORMAT "clang-format")
 if(CLANG_FORMAT)
     message(STATUS "Found clang-format: ${CLANG_FORMAT}")
-    
+
     file(GLOB_RECURSE ALL_SOURCE_FILES
         "${CMAKE_SOURCE_DIR}/src/*.c"
         "${CMAKE_SOURCE_DIR}/src/*.h"
         "${CMAKE_SOURCE_DIR}/include/hostman/*.h"
     )
-    
+
     add_custom_target(format
         COMMAND ${CLANG_FORMAT} -i -style=file ${ALL_SOURCE_FILES}
         COMMENT "Formatting source code with clang-format"
         VERBATIM)
-    
+
     add_custom_target(check-format
         COMMAND ${CLANG_FORMAT} --dry-run --Werror -style=file ${ALL_SOURCE_FILES}
         COMMENT "Checking code formatting with clang-format"
