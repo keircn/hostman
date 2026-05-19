@@ -8,7 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <cjson/cJSON.h>
+#include <cJSON.h>
 
 char *
 get_filename_from_path(const char *path)
@@ -383,7 +383,7 @@ copy_to_clipboard(const char *text)
     const char *cmd = NULL;
     if (strcmp(clipboard_cmd, "wl-copy") == 0)
     {
-        cmd = "wl-copy --foreground";
+        cmd = "wl-copy";
     }
     else if (strcmp(clipboard_cmd, "xclip") == 0)
     {

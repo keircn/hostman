@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <cjson/cJSON.h>
+#include <cJSON.h>
 
 static hostman_config_t *current_config = NULL;
 

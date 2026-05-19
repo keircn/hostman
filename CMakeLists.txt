@@ -21,20 +21,9 @@ find_package(SQLite3 REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 
-if(WIN32)
-    find_package(cJSON REQUIRED)
-    set(JSON_LIBRARY cJSON)
-    set(JSON_INCLUDE_DIR ${cJSON_INCLUDE_DIR})
-else()
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(CJSON REQUIRED libcjson)
-    add_library(cJSON::cJSON UNKNOWN IMPORTED)
-
-    set_target_properties(cJSON::cJSON PROPERTIES
-        IMPORTED_LOCATION "${CJSON_LIBDIR}/libcjson.so"
-        INTERFACE_INCLUDE_DIRECTORIES "${CJSON_INCLUDE_DIRS}"
-    )
-endif()
+add_library(cJSON STATIC third_party/cjson/cJSON.c)
+target_include_directories(cJSON PUBLIC third_party/cjson)
+set(JSON_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cjson)
 
 if(HOSTMAN_USE_TUI)
     if(WIN32)
@@ -91,7 +80,7 @@ add_executable(hostman ${HOSTMAN_SOURCES})
 target_link_libraries(hostman
     ${CURL_LIBRARIES}
     SQLite::SQLite3
-    cJSON::cJSON
+    cJSON
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     m)

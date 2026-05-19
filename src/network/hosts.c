@@ -3,7 +3,7 @@
 #include "hostman/core/logging.h"
 #include "hostman/crypto/encryption.h"
 #include "hostman/ui/ui.h"
-#include <cjson/cJSON.h>
+#include <cJSON.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
