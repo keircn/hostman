@@ -27,7 +27,6 @@
             buildInputs = [
               pkgs.curl
               pkgs.sqlite
-              pkgs.cjson
               pkgs.openssl
               pkgs.ncurses
             ];

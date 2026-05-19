@@ -14,7 +14,6 @@
 | Library | Description | Required |
 |---------|-------------|----------|
 | libcurl | HTTP client library | Yes |
-| cJSON | JSON parsing | Yes |
 | SQLite3 | Local database storage | Yes |
 | OpenSSL | Cryptography | Yes |
 | ncurses | TUI support | Optional (via `HOSTMAN_USE_TUI`) |
@@ -32,7 +31,6 @@ sudo pacman -S --needed \
   pkgconf \
   curl \
   sqlite \
-  cjson \
   openssl \
   ncurses \
   clang
@@ -53,7 +51,6 @@ brew install \
   cmake \
   curl \
   sqlite \
-  cjson \
   openssl \
   ncurses \
   clang-format
@@ -78,7 +75,6 @@ pacman -S --needed \
   mingw-w64-x86_64-pkgconf \
   mingw-w64-x86_64-libcurl \
   mingw-w64-x86_64-sqlite3 \
-  mingw-w64-x86_64-cjson \
   mingw-w64-x86_64-openssl \
   mingw-w64-x86_64-ncurses
 ```
@@ -90,7 +86,7 @@ pacman -S --needed \
 Install Visual Studio with C++ support, then install vcpkg for dependencies:
 
 ```bash
-vcpkg install curl:x64-windows sqlite3:x64-windows cjson:x64-windows openssl:x64-windows
+vcpkg install curl:x64-windows sqlite3:x64-windows openssl:x64-windows
 ```
 
 ---
@@ -105,7 +101,6 @@ pkg install \
   pkgconf \
   curl \
   sqlite3 \
-  cjson \
   openssl \
   ncurses \
   llvm
@@ -117,7 +112,6 @@ pkg install \
 pkg install \
   curl \
   sqlite3 \
-  cjson \
   openssl \
   ncurses
 ```
