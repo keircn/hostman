@@ -79,7 +79,7 @@ add_executable(hostman ${HOSTMAN_SOURCES})
 
 target_link_libraries(hostman
     ${CURL_LIBRARIES}
-    SQLite::SQLite3
+    SQLite3::SQLite3
     cJSON
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
