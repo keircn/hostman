@@ -70,7 +70,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_BINARY_DIR}/include
     ${CURL_INCLUDE_DIRS}
-    ${SQLITE3_INCLUDE_DIRS}
+    ${SQLite3_INCLUDE_DIRS}
     ${JSON_INCLUDE_DIR}
     ${OPENSSL_INCLUDE_DIR}
 )
@@ -79,7 +79,7 @@ add_executable(hostman ${HOSTMAN_SOURCES})
 
 target_link_libraries(hostman
     ${CURL_LIBRARIES}
-    SQLite3::SQLite3
+    ${SQLite3_LIBRARY}
     cJSON
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}

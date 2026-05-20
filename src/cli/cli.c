@@ -812,8 +812,45 @@ parse_args(int argc, char *argv[])
             }
             else
             {
-                print_error("Error: File path required\n");
-                args.type = CMD_UNKNOWN;
+                if (!isatty(STDIN_FILENO))
+                {
+                    char line[4096];
+                    int capacity = 16;
+                    args.file_paths = malloc(capacity * sizeof(char *));
+                    args.file_count = 0;
+
+                    while (fgets(line, sizeof(line), stdin))
+                    {
+                        size_t len = strlen(line);
+                        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
+                            line[--len] = '\0';
+
+                        if (len == 0)
+                            continue;
+
+                        if (args.file_count >= capacity)
+                        {
+                            capacity *= 2;
+                            args.file_paths = realloc(args.file_paths, capacity * sizeof(char *));
+                        }
+                        args.file_paths[args.file_count++] = strdup(line);
+                    }
+
+                    if (args.file_count == 0)
+                    {
+                        print_error("Error: No file paths received from stdin\n");
+                        args.type = CMD_UNKNOWN;
+                    }
+                    else
+                    {
+                        args.file_path = strdup(args.file_paths[0]);
+                    }
+                }
+                else
+                {
+                    print_error("Error: File path required\n");
+                    args.type = CMD_UNKNOWN;
+                }
             }
             break;
         }
