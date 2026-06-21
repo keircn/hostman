@@ -31,6 +31,32 @@
 static bool use_color = true;
 static output_mode_t current_output_mode = OUTPUT_NORMAL;
 
+typedef struct
+{
+    char *data;
+    size_t size;
+} response_data_t;
+
+static size_t
+write_callback(void *contents, size_t size, size_t nmemb, void *userp)
+{
+    size_t real_size = size * nmemb;
+    response_data_t *resp = (response_data_t *)userp;
+
+    char *ptr = realloc(resp->data, resp->size + real_size + 1);
+    if (!ptr)
+    {
+        return 0;
+    }
+
+    resp->data = ptr;
+    memcpy(&(resp->data[resp->size]), contents, real_size);
+    resp->size += real_size;
+    resp->data[resp->size] = 0;
+
+    return real_size;
+}
+
 static bool
 is_global_option(const char *arg)
 {
@@ -1766,6 +1792,7 @@ execute_command(command_args_t *args)
 
             CURL *curl;
             CURLcode res;
+            response_data_t response_data = { 0 };
 
             curl = curl_easy_init();
             if (!curl)
@@ -1781,26 +1808,35 @@ execute_command(command_args_t *args)
 
             curl_easy_setopt(curl, CURLOPT_URL, deletion_url);
             curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+
+            if (args->insecure)
+            {
+                curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+                curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+            }
+            else
+            {
+                curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+                curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+            }
 
             res = curl_easy_perform(curl);
+
+            long http_code = 0;
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+            curl_easy_cleanup(curl);
+            free(deletion_url);
 
             if (res != CURLE_OK)
             {
                 print_error("Error: %s\n", curl_easy_strerror(res));
-                curl_easy_cleanup(curl);
+                free(response_data.data);
                 if (records)
                     db_free_records(records, count);
-                free(deletion_url);
                 return EXIT_NETWORK_ERROR;
             }
-
-            long http_code = 0;
-            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-
-            curl_easy_cleanup(curl);
-            free(deletion_url);
 
             bool success = (http_code >= 200 && http_code < 300);
 
@@ -1826,11 +1862,15 @@ execute_command(command_args_t *args)
             else
             {
                 print_error("Failed to delete file. HTTP status code: %ld\n", http_code);
-                print_info("The file server might require a specific request method or additional "
-                           "parameters.\n");
+                if (response_data.data && response_data.size > 0)
+                {
+                    print_info("Server response: %s\n", response_data.data);
+                }
                 print_info("You can try visiting the deletion URL in your browser: %s\n",
                            record->deletion_url);
             }
+
+            free(response_data.data);
 
             if (records)
                 db_free_records(records, count);
