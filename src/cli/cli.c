@@ -47,6 +47,30 @@ init_color_support(void)
     }
 }
 
+static void
+handle_global_option(int c, command_args_t *args)
+{
+    switch (c)
+    {
+        case 'q':
+            args->output_mode = OUTPUT_QUIET;
+            current_output_mode = OUTPUT_QUIET;
+            break;
+        case OPT_GLOBAL_JSON:
+            args->output_mode = OUTPUT_JSON;
+            current_output_mode = OUTPUT_JSON;
+            use_color = false;
+            break;
+        case OPT_GLOBAL_VERBOSE:
+            args->output_mode = OUTPUT_VERBOSE;
+            current_output_mode = OUTPUT_VERBOSE;
+            break;
+        case OPT_GLOBAL_NO_COLOR:
+            use_color = false;
+            break;
+    }
+}
+
 void
 print_section_header(const char *text)
 {
@@ -483,23 +507,8 @@ parse_args(int argc, char *argv[])
                 case '?':
                     print_command_help("list-hosts");
                     exit(EXIT_SUCCESS);
-                case 'q':
-                    args.output_mode = OUTPUT_QUIET;
-                    current_output_mode = OUTPUT_QUIET;
-                    break;
-                case OPT_GLOBAL_JSON:
-                    args.output_mode = OUTPUT_JSON;
-                    current_output_mode = OUTPUT_JSON;
-                    use_color = false;
-                    break;
-                case OPT_GLOBAL_VERBOSE:
-                    args.output_mode = OUTPUT_VERBOSE;
-                    current_output_mode = OUTPUT_VERBOSE;
-                    break;
-                case OPT_GLOBAL_NO_COLOR:
-                    use_color = false;
-                    break;
                 default:
+                    handle_global_option(c, &args);
                     break;
             }
         }
@@ -526,23 +535,8 @@ parse_args(int argc, char *argv[])
                 case '?':
                     print_command_help("delete-upload");
                     exit(EXIT_SUCCESS);
-                case 'q':
-                    args.output_mode = OUTPUT_QUIET;
-                    current_output_mode = OUTPUT_QUIET;
-                    break;
-                case OPT_GLOBAL_JSON:
-                    args.output_mode = OUTPUT_JSON;
-                    current_output_mode = OUTPUT_JSON;
-                    use_color = false;
-                    break;
-                case OPT_GLOBAL_VERBOSE:
-                    args.output_mode = OUTPUT_VERBOSE;
-                    current_output_mode = OUTPUT_VERBOSE;
-                    break;
-                case OPT_GLOBAL_NO_COLOR:
-                    use_color = false;
-                    break;
                 default:
+                    handle_global_option(c, &args);
                     break;
             }
         }
@@ -584,23 +578,8 @@ parse_args(int argc, char *argv[])
                 case '?':
                     print_command_help("delete-file");
                     exit(EXIT_SUCCESS);
-                case 'q':
-                    args.output_mode = OUTPUT_QUIET;
-                    current_output_mode = OUTPUT_QUIET;
-                    break;
-                case OPT_GLOBAL_JSON:
-                    args.output_mode = OUTPUT_JSON;
-                    current_output_mode = OUTPUT_JSON;
-                    use_color = false;
-                    break;
-                case OPT_GLOBAL_VERBOSE:
-                    args.output_mode = OUTPUT_VERBOSE;
-                    current_output_mode = OUTPUT_VERBOSE;
-                    break;
-                case OPT_GLOBAL_NO_COLOR:
-                    use_color = false;
-                    break;
                 default:
+                    handle_global_option(c, &args);
                     break;
             }
         }
@@ -711,26 +690,11 @@ parse_args(int argc, char *argv[])
                     case 'n':
                         args.no_clipboard = true;
                         break;
-                    case 'q':
-                        args.output_mode = OUTPUT_QUIET;
-                        current_output_mode = OUTPUT_QUIET;
-                        break;
-                    case OPT_GLOBAL_JSON:
-                        args.output_mode = OUTPUT_JSON;
-                        current_output_mode = OUTPUT_JSON;
-                        use_color = false;
-                        break;
-                    case OPT_GLOBAL_VERBOSE:
-                        args.output_mode = OUTPUT_VERBOSE;
-                        current_output_mode = OUTPUT_VERBOSE;
-                        break;
-                    case OPT_GLOBAL_NO_COLOR:
-                        use_color = false;
-                        break;
                     case '?':
                         print_command_help("upload");
                         exit(EXIT_SUCCESS);
                     default:
+                        handle_global_option(c, &args);
                         break;
                 }
             }
@@ -890,26 +854,11 @@ parse_args(int argc, char *argv[])
                         if (args.limit < 1)
                             args.limit = 1;
                         break;
-                    case 'q':
-                        args.output_mode = OUTPUT_QUIET;
-                        current_output_mode = OUTPUT_QUIET;
-                        break;
-                    case OPT_GLOBAL_JSON:
-                        args.output_mode = OUTPUT_JSON;
-                        current_output_mode = OUTPUT_JSON;
-                        use_color = false;
-                        break;
-                    case OPT_GLOBAL_VERBOSE:
-                        args.output_mode = OUTPUT_VERBOSE;
-                        current_output_mode = OUTPUT_VERBOSE;
-                        break;
-                    case OPT_GLOBAL_NO_COLOR:
-                        use_color = false;
-                        break;
                     case '?':
                         print_command_help("list-uploads");
                         exit(EXIT_SUCCESS);
                     default:
+                        handle_global_option(c, &args);
                         break;
                 }
             }
