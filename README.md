@@ -6,7 +6,18 @@ A command line image host manager
 
 ## Installation
 
-Either get the latest binary release from [GitHub](https://github.com/keircn/hostman/releases/latest) or build from source according to [BUILD.md](./BUILD.md)
+### Package managers
+
+- **Arch Linux** - Install from the AUR: `paru -S hostman/hostman-bin`
+- **Gentoo** - Available via the [roxy-overlay](https://codeberg.org/key/roxy-overlay) portage overlay: `eselect repository enable roxy-overlay && emerge -a hostman`
+
+### Pre-built binaries
+
+Download the latest binary from the [releases page](https://github.com/keircn/hostman/releases/latest).
+
+### Build from source
+
+See [BUILD.md](./BUILD.md) for build instructions.
 
 ### Quick Start
 
