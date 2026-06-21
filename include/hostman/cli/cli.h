@@ -39,6 +39,7 @@ typedef struct
     char *directory;
     bool continue_on_error;
     bool no_clipboard;
+    bool insecure;
     int throttle_ms;
     int page;
     int limit;

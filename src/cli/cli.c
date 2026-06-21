@@ -204,6 +204,7 @@ print_command_help(const char *command)
         print_option("--throttle, -t <ms>",
                      "Delay between uploads in ms (batch mode, avoids rate limits)");
         print_option("--no-clipboard, -n", "Do not copy URL(s) to clipboard");
+        print_option("--insecure, -k", "Skip TLS certificate verification");
         print_option("--help", "Show this help message");
 
         print_section_header("EXAMPLES");
@@ -657,6 +658,7 @@ parse_args(int argc, char *argv[])
                 { "continue-on-error", no_argument, 0, 'c' },
                 { "throttle", required_argument, 0, 't' },
                 { "no-clipboard", no_argument, 0, 'n' },
+                { "insecure", no_argument, 0, 'k' },
                 { "quiet", no_argument, 0, 'q' },
                 { "json", no_argument, 0, OPT_GLOBAL_JSON },
                 { "verbose", no_argument, 0, OPT_GLOBAL_VERBOSE },
@@ -669,7 +671,7 @@ parse_args(int argc, char *argv[])
             int c;
             optind = cmd_index + 1;
 
-            while ((c = getopt_long(argc, argv, "h:d:ct:nq", long_options, &option_index)) != -1)
+            while ((c = getopt_long(argc, argv, "h:d:ct:nkq", long_options, &option_index)) != -1)
             {
                 switch (c)
                 {
@@ -689,6 +691,9 @@ parse_args(int argc, char *argv[])
                         break;
                     case 'n':
                         args.no_clipboard = true;
+                        break;
+                    case 'k':
+                        args.insecure = true;
                         break;
                     case '?':
                         print_command_help("upload");
@@ -1052,6 +1057,7 @@ execute_command(command_args_t *args)
             }
 
             set_clipboard_override(config->clipboard_manager);
+            network_set_insecure(args->insecure);
 
             host_config_t *host = NULL;
             if (args->host_name)

@@ -41,6 +41,8 @@ bool
 network_init(void);
 void
 network_set_config(network_config_t *config);
+void
+network_set_insecure(bool insecure);
 upload_response_t *
 network_upload_file(const char *file_path, host_config_t *host);
 void

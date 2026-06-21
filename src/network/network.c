@@ -13,6 +13,8 @@
 
 #define MIN_PROGRESS_UPDATE_MS 100
 
+static bool network_insecure = false;
+
 static network_config_t global_config = { .timeout_seconds = DEFAULT_TIMEOUT_SECONDS,
                                           .max_retries = DEFAULT_MAX_RETRIES,
                                           .retry_delay_ms = DEFAULT_RETRY_DELAY_MS,
@@ -233,6 +235,12 @@ network_init(void)
 }
 
 void
+network_set_insecure(bool insecure)
+{
+    network_insecure = insecure;
+}
+
+void
 network_set_config(network_config_t *config)
 {
     if (config)
@@ -264,8 +272,16 @@ configure_curl_handle(CURL *curl,
     curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
     curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, progress_callback);
     curl_easy_setopt(curl, CURLOPT_XFERINFODATA, prog_data);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+    if (network_insecure)
+    {
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+    }
+    else
+    {
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+    }
 
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, global_config.timeout_seconds);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, global_config.timeout_seconds);
