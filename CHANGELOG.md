@@ -9,11 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- 
+- Host presets for commonly used upload targets
+- Man page (`man hostman`)
+- Bundle cJSON as a vendored static library (removes external dependency)
+- Build cJSON as a static library to simplify linking
+
+### Changed
+
+- Full TUI refactor for improved navigation and usability
+- CLI now parses global flags (`--json`, `--verbose`, etc.) in any position, not just before subcommands
+- Improved clipboard tool detection with proper `PATH` traversal instead of shelling out
 
 ### Fixed
 
-- 
+- Fixed cJSON CMake import on non-Linux platforms
+- Fixed wl-copy invocation arguments for better Wayland compatibility
+- Removed leftover debug files
 
 ## 1.2.4 - 2026-03-09
 
