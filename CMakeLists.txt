@@ -93,6 +93,7 @@ install(TARGETS hostman DESTINATION bin)
 install(DIRECTORY include/hostman DESTINATION include)
 install(DIRECTORY include/hostman/ui DESTINATION include/hostman)
 install(FILES man/hostman.1 DESTINATION share/man/man1)
+install(FILES man/hostman-config.5 DESTINATION share/man/man5)
 
 option(BUILD_DOCS "Build documentation" OFF)
 if(BUILD_DOCS)

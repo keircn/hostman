@@ -1,136 +1,169 @@
-.TH HOSTMAN 1 "April 2026" "hostman 1.2.4" "User Commands"
+.TH HOSTMAN 1 "May 2026" "hostman 1.2.5" "User Commands"
 .SH NAME
 hostman \- command line image host manager
-
 .SH SYNOPSIS
 .B hostman
 .RI [ global-options ]
 .I command
 .RI [ command-options ]
-
 .SH DESCRIPTION
 .B hostman
 uploads files to configured hosting providers, manages host definitions,
 stores upload history, and supports deleting uploads when a deletion URL is available.
-
+.P
+Global options (--quiet, --json, --verbose, --no-color) can be placed before or
+after the command, not just at the start.
 .SH GLOBAL OPTIONS
 .TP
-.B -h, --help
+.B \-h, \-\-help
 Show help output.
 .TP
-.B -v, --version
+.B \-v, \-\-version
 Show version information.
 .TP
-.B -q, --quiet
-Reduce output.
+.B \-q, \-\-quiet
+Reduce output (only errors and warnings).
 .TP
-.B --json
+.B \-\-json
 Emit machine-readable JSON output when supported.
 .TP
-.B --verbose
+.B \-\-verbose
 Enable more detailed output.
 .TP
-.B --no-color
+.B \-\-no-color
 Disable ANSI color output.
-
 .SH COMMANDS
 .TP
 .B upload
 Upload one or more files.
-
 .RS
+.P
 .B Usage:
 hostman upload [options] <file_path> [file_path...]
-
-hostman upload [options] --directory <path>
-
+.br
+hostman upload [options] \-\-directory <path>
+.br
+hostman upload [options] (reads file paths from stdin if no args)
+.P
 .B Options:
---host <name>, --directory/-d <path>, --continue-on-error/-c,
---throttle/-t <ms>, --no-clipboard/-n
+.RS
+.TP
+\-\-host <name>
+Host to use (default: configured default host).
+.TP
+\-\-directory, \-d <path>
+Upload all files from a directory.
+.TP
+\-\-continue-on-error, \-c
+Continue batch upload if a file fails.
+.TP
+\-\-throttle, \-t <ms>
+Delay between uploads in milliseconds (avoids rate limits).
+.TP
+\-\-no-clipboard, \-n
+Do not copy URL(s) to clipboard.
 .RE
-
+.RE
 .TP
 .B list-uploads
 List upload history with optional filtering and pagination.
-
 .RS
+.P
 .B Options:
---host <name>, --page <number>, --limit <count>
+.TP
+\-\-host <name>
+Filter uploads by host.
+.TP
+\-\-page <number>
+Page number for pagination (default: 1).
+.TP
+\-\-limit <count>
+Records per page (default: 20).
 .RE
-
 .TP
 .B delete-upload <id>
 Delete a local upload history entry.
-
 .TP
 .B delete-file <id>
 Delete the remote file using the stored deletion URL.
-
 .TP
 .B list-hosts
 List configured hosts.
-
 .TP
 .B add-host
 Add a host interactively.
-
 .TP
 .B list-presets
 List built-in host presets.
-
 .TP
 .B add-preset <preset_name>
-Add a host from a built-in preset.
-
+Add a host from a built-in preset (e.g. imgbb, imgur, 0x0.st).
 .TP
 .B import-host <sxcu_file>
 Import a host from a ShareX SXCU file.
-
 .TP
 .B remove-host <name>
 Remove a configured host.
-
 .TP
 .B set-default-host <name>
 Set the default host for uploads.
-
 .TP
 .B config
 Manage configuration.
-
 .RS
+.P
 .B Usage:
 hostman config
-
+.br
 hostman config get <key>
-
+.br
 hostman config set <key> <value>
+.P
+.B Config keys:
+.RS
+.TP
+log_level
+Log level: DEBUG, INFO, WARN, or ERROR.
+.TP
+log_file
+Path to log file.
+.TP
+copy_to_clipboard
+true or false.
+.TP
+default_host
+Default host for uploads.
+.TP
+hosts.<name>.<property>
+Host-specific settings (api_endpoint, auth_type, etc.).
 .RE
-
+.RE
 .TP
 .B help [command]
-Show built-in CLI help.
-
+Show built-in CLI help for a specific command.
 .SH FILES
 .TP
 .I ~/.config/hostman/config.json
-Main configuration file.
+Main configuration file (see hostman-config(5) for details).
 .TP
 .I ~/.cache/hostman/hostman.db
-Upload history database.
-
+SQLite upload history database.
 .SH EXAMPLES
 .TP
 hostman upload image.png
 .TP
-hostman upload --directory ./screenshots
+hostman upload file1.png file2.jpg \-\-throttle 1000
+.TP
+hostman upload \-\-directory ./screenshots \-\-continue-on-error
 .TP
 hostman add-preset imgbb
 .TP
-hostman list-uploads --page 2 --limit 10
-
+hostman list-uploads \-\-page 2 \-\-limit 10
+.TP
+hostman config set log_level DEBUG
 .SH EXIT STATUS
 0 on success, non-zero on failure.
-
+.SH SEE ALSO
+.BR hostman-config (5)
 .SH LICENSE
 MIT License.

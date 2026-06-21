@@ -1,0 +1,108 @@
+.TH HOSTMAN-CONFIG 5 "May 2026" "hostman 1.2.5" "File Formats"
+.SH NAME
+hostman-config \- hostman configuration file format
+.SH DESCRIPTION
+.B hostman
+uses a JSON configuration file at
+.I ~/.config/hostman/config.json
+to store global settings and host definitions.
+.P
+The file is automatically created on first run via the interactive setup wizard.
+.SH FILE LOCATION
+.TP
+.I $XDG_CONFIG_HOME/hostman/config.json
+(default: ~/.config/hostman/config.json)
+.SH FORMAT
+The configuration file is a JSON object with the following structure:
+.P
+.RS
+.nf
+{
+    "version": 1,
+    "default_host": "myhost",
+    "log_level": "INFO",
+    "log_file": "/path/to/log",
+    "copy_to_clipboard": true,
+    "hosts": {
+        "myhost": {
+            "api_endpoint": "https://example.com/api/upload",
+            "auth_type": "header",
+            "api_key_name": "Authorization",
+            "api_key_encrypted": "...",
+            "request_body_format": "multipart",
+            "file_form_field": "file",
+            "static_form_fields": {
+                "folder": "hostman"
+            },
+            "response_url_json_path": "url",
+            "response_deletion_url_json_path": "deletionUrl"
+        }
+    }
+}
+.RE
+.SH GLOBAL KEYS
+.TP
+.B version
+Integer. Config schema version (currently 1). Must be positive.
+.TP
+.B default_host
+String. Name of the default host used when \-\-host is not specified.
+Must reference an existing host entry.
+.TP
+.B log_level
+String. One of DEBUG, INFO, WARN, or ERROR.
+.TP
+.B log_file
+String. Path to the log file. If empty or absent, logging is disabled.
+.TP
+.B copy_to_clipboard
+Boolean. Whether to automatically copy uploaded URLs to the clipboard.
+.TP
+.B hosts
+Object. Maps host names to host configuration objects (see below).
+.SH HOST KEYS
+Each host entry may contain:
+.TP
+.B api_endpoint
+String (required). The full URL of the upload API endpoint.
+.TP
+.B auth_type
+String (required). Authentication method: "header", "basic", "none", etc.
+.TP
+.B api_key_name
+String. The header or field name used to pass the API key.
+.TP
+.B api_key_encrypted
+String. The encrypted API key. Set via the interactive add-host prompt;
+not exposed through the config get/set CLI.
+.TP
+.B request_body_format
+String (required). "multipart" for multipart/form-data or "json" for
+application/json.
+.TP
+.B file_form_field
+String (required). The form field name used for the file upload.
+.TP
+.B static_form_fields
+Object. Additional key-value pairs sent with every upload request.
+.TP
+.B response_url_json_path
+String (required). JSONPath expression to extract the upload URL from
+the response. Supports dot notation (e.g. "data.url"), array indexing
+(e.g. "files[0].url"), and "raw"/"text" to use the full response body.
+.TP
+.B response_deletion_url_json_path
+String. JSONPath expression to extract the deletion URL from the
+response. Leave absent or empty if the host does not support deletion.
+.SH DATABASE
+Upload history is stored in a SQLite database at:
+.P
+.RS
+.I ~/.cache/hostman/hostman.db
+.RE
+.P
+This file is managed automatically and should not be edited manually.
+.SH SEE ALSO
+.BR hostman (1)
+.SH LICENSE
+MIT License.
