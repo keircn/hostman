@@ -29,4 +29,7 @@ get_clipboard_manager_name(void);
 void
 print_version_info(void);
 
+void
+set_clipboard_override(const char *name);
+
 #endif

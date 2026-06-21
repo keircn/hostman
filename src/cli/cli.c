@@ -1051,6 +1051,8 @@ execute_command(command_args_t *args)
                 return EXIT_CONFIG_ERROR;
             }
 
+            set_clipboard_override(config->clipboard_manager);
+
             host_config_t *host = NULL;
             if (args->host_name)
             {

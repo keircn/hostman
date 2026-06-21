@@ -334,6 +334,15 @@ pick_clipboard_manager(void)
     return NULL;
 }
 
+static char *clipboard_override = NULL;
+
+void
+set_clipboard_override(const char *name)
+{
+    free(clipboard_override);
+    clipboard_override = name ? strdup(name) : NULL;
+}
+
 static const char *
 detect_clipboard_manager(void)
 {
@@ -342,6 +351,17 @@ detect_clipboard_manager(void)
     if (command_found[0] != '\0')
     {
         return command_found;
+    }
+
+    if (clipboard_override)
+    {
+        const char *resolved = find_command_in_path(clipboard_override);
+        if (resolved)
+        {
+            return resolved;
+        }
+        log_warn("Clipboard override '%s' not found in PATH, falling back to auto-detection",
+                 clipboard_override);
     }
 
     const char *manager = pick_clipboard_manager();

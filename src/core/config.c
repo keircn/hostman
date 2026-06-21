@@ -247,6 +247,12 @@ parse_config(cJSON *json)
         config->copy_to_clipboard = true;
     }
 
+    cJSON *clipboard_manager = cJSON_GetObjectItem(json, "clipboard_manager");
+    if (clipboard_manager && cJSON_IsString(clipboard_manager))
+    {
+        config->clipboard_manager = strdup(clipboard_manager->valuestring);
+    }
+
     cJSON *hosts = cJSON_GetObjectItem(json, "hosts");
     if (hosts && cJSON_IsObject(hosts))
     {
@@ -365,6 +371,11 @@ config_to_json(hostman_config_t *config)
     }
 
     cJSON_AddBoolToObject(json, "copy_to_clipboard", config->copy_to_clipboard);
+
+    if (config->clipboard_manager)
+    {
+        cJSON_AddStringToObject(json, "clipboard_manager", config->clipboard_manager);
+    }
 
     cJSON *hosts = cJSON_CreateObject();
     for (int i = 0; i < config->host_count; i++)
@@ -594,6 +605,13 @@ config_get_value(const char *key)
     {
         value = strdup(config->copy_to_clipboard ? "true" : "false");
     }
+    else if (strcmp(key, "clipboard_manager") == 0)
+    {
+        if (config->clipboard_manager)
+        {
+            value = strdup(config->clipboard_manager);
+        }
+    }
     else
     {
         if (strncmp(key, "hosts.", 6) == 0)
@@ -780,6 +798,12 @@ config_set_value(const char *key, const char *value)
             config->copy_to_clipboard = new_val;
             changed = true;
         }
+    }
+    else if (strcmp(key, "clipboard_manager") == 0)
+    {
+        free(config->clipboard_manager);
+        config->clipboard_manager = strdup(value);
+        changed = true;
     }
     else
     {
@@ -1099,6 +1123,7 @@ config_free(hostman_config_t *config)
     free(config->default_host);
     free(config->log_level);
     free(config->log_file);
+    free(config->clipboard_manager);
 
     for (int i = 0; i < config->host_count; i++)
     {
