@@ -750,6 +750,13 @@ parse_args(int argc, char *argv[])
 
                 int capacity = 16;
                 args.file_paths = malloc(capacity * sizeof(char *));
+                if (!args.file_paths)
+                {
+                    print_error("Error: Out of memory reading directory\n");
+                    closedir(dir);
+                    args.type = CMD_UNKNOWN;
+                    break;
+                }
                 args.file_count = 0;
 
                 struct dirent *entry;
@@ -767,7 +774,15 @@ parse_args(int argc, char *argv[])
                         if (args.file_count >= capacity)
                         {
                             capacity *= 2;
-                            args.file_paths = realloc(args.file_paths, capacity * sizeof(char *));
+                            char **new_paths = realloc(args.file_paths, capacity * sizeof(char *));
+                            if (!new_paths)
+                            {
+                                print_error("Error: Out of memory reading directory\n");
+                                closedir(dir);
+                                args.type = CMD_UNKNOWN;
+                                break;
+                            }
+                            args.file_paths = new_paths;
                         }
                         args.file_paths[args.file_count++] = strdup(full_path);
                     }
@@ -792,12 +807,24 @@ parse_args(int argc, char *argv[])
                     args.file_path = strdup(argv[optind]);
                     args.file_count = 1;
                     args.file_paths = malloc(sizeof(char *));
+                    if (!args.file_paths)
+                    {
+                        print_error("Error: Out of memory\n");
+                        args.type = CMD_UNKNOWN;
+                        break;
+                    }
                     args.file_paths[0] = strdup(argv[optind]);
                 }
                 else
                 {
                     args.file_count = remaining;
                     args.file_paths = malloc(remaining * sizeof(char *));
+                    if (!args.file_paths)
+                    {
+                        print_error("Error: Out of memory\n");
+                        args.type = CMD_UNKNOWN;
+                        break;
+                    }
                     for (int i = 0; i < remaining; i++)
                     {
                         args.file_paths[i] = strdup(argv[optind + i]);
@@ -812,6 +839,12 @@ parse_args(int argc, char *argv[])
                     char line[4096];
                     int capacity = 16;
                     args.file_paths = malloc(capacity * sizeof(char *));
+                    if (!args.file_paths)
+                    {
+                        print_error("Error: Out of memory reading stdin\n");
+                        args.type = CMD_UNKNOWN;
+                        break;
+                    }
                     args.file_count = 0;
 
                     while (fgets(line, sizeof(line), stdin))
@@ -826,7 +859,14 @@ parse_args(int argc, char *argv[])
                         if (args.file_count >= capacity)
                         {
                             capacity *= 2;
-                            args.file_paths = realloc(args.file_paths, capacity * sizeof(char *));
+                            char **new_paths = realloc(args.file_paths, capacity * sizeof(char *));
+                            if (!new_paths)
+                            {
+                                print_error("Error: Out of memory reading stdin\n");
+                                args.type = CMD_UNKNOWN;
+                                break;
+                            }
+                            args.file_paths = new_paths;
                         }
                         args.file_paths[args.file_count++] = strdup(line);
                     }
@@ -1119,6 +1159,16 @@ execute_command(command_args_t *args)
                 success_urls = malloc(args->file_count * sizeof(char *));
                 failed_files = malloc(args->file_count * sizeof(char *));
                 failed_errors = malloc(args->file_count * sizeof(char *));
+
+                if (!success_urls || !failed_files || !failed_errors)
+                {
+                    print_error("Error: Out of memory for batch upload tracking\n");
+                    free(success_urls);
+                    free(failed_files);
+                    free(failed_errors);
+                    config_free(config);
+                    return EXIT_FAILURE;
+                }
 
                 print_section_header("BATCH UPLOAD");
                 print_info("  Uploading %d files to %s\n\n", args->file_count, host->name);
