@@ -27,6 +27,8 @@ const char *
 get_clipboard_manager_name(void);
 char *
 read_clipboard_to_temp_file(void);
+char *
+read_clipboard_file_path(void);
 
 void
 print_version_info(void);

@@ -748,26 +748,45 @@ parse_args(int argc, char *argv[])
                     break;
                 }
 
-                char *temp_file = read_clipboard_to_temp_file();
-                if (!temp_file)
+                char *clipboard_file = read_clipboard_file_path();
+                if (clipboard_file)
                 {
-                    print_error("Error: No image found in clipboard\n");
-                    print_info("  Copy an image to the clipboard first, or use a file path.\n");
-                    args.type = CMD_UNKNOWN;
-                    break;
+                    args.file_count = 1;
+                    args.file_paths = malloc(sizeof(char *));
+                    if (!args.file_paths)
+                    {
+                        print_error("Error: Out of memory\n");
+                        free(clipboard_file);
+                        args.type = CMD_UNKNOWN;
+                        break;
+                    }
+                    args.file_paths[0] = strdup(clipboard_file);
+                    args.file_path = strdup(clipboard_file);
+                    free(clipboard_file);
                 }
+                else
+                {
+                    char *temp_file = read_clipboard_to_temp_file();
+                    if (!temp_file)
+                    {
+                        print_error("Error: No image or file found in clipboard\n");
+                        print_info("  Copy an image or a file to the clipboard first.\n");
+                        args.type = CMD_UNKNOWN;
+                        break;
+                    }
 
-                args.clipboard_temp_file = temp_file;
-                args.file_count = 1;
-                args.file_paths = malloc(sizeof(char *));
-                if (!args.file_paths)
-                {
-                    print_error("Error: Out of memory\n");
-                    args.type = CMD_UNKNOWN;
-                    break;
+                    args.clipboard_temp_file = temp_file;
+                    args.file_count = 1;
+                    args.file_paths = malloc(sizeof(char *));
+                    if (!args.file_paths)
+                    {
+                        print_error("Error: Out of memory\n");
+                        args.type = CMD_UNKNOWN;
+                        break;
+                    }
+                    args.file_paths[0] = strdup(temp_file);
+                    args.file_path = strdup(temp_file);
                 }
-                args.file_paths[0] = strdup(temp_file);
-                args.file_path = strdup(temp_file);
             }
             else if (args.directory)
             {

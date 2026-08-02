@@ -584,6 +584,214 @@ detect_image_extension(const unsigned char *data, size_t size)
     return NULL;
 }
 
+static bool
+is_file_uri(const char *str)
+{
+    return str && strncmp(str, "file://", 7) == 0;
+}
+
+static void
+url_decode(const char *input, char *output, size_t output_size)
+{
+    size_t i = 0;
+    size_t j = 0;
+
+    while (input[i] != '\0' && j + 1 < output_size)
+    {
+        if (input[i] == '%' && input[i + 1] != '\0' && input[i + 2] != '\0')
+        {
+            char hex[3] = { input[i + 1], input[i + 2], '\0' };
+            output[j++] = (char)strtol(hex, NULL, 16);
+            i += 3;
+        }
+        else
+        {
+            output[j++] = input[i];
+            i++;
+        }
+    }
+
+    output[j] = '\0';
+}
+
+static char *
+decode_file_uri(const char *uri)
+{
+    if (!uri || !is_file_uri(uri))
+    {
+        return NULL;
+    }
+
+    const char *path_start = uri + 7;
+
+    if (strncmp(path_start, "localhost/", 10) == 0)
+    {
+        path_start += 10;
+    }
+
+    if (path_start[0] != '/')
+    {
+        return NULL;
+    }
+
+    size_t len = strlen(path_start);
+    char *decoded = malloc(len + 1);
+    if (!decoded)
+    {
+        return NULL;
+    }
+
+    url_decode(path_start, decoded, len + 1);
+
+    if (decoded[0] == '\0')
+    {
+        free(decoded);
+        return NULL;
+    }
+
+    return decoded;
+}
+
+static char *
+get_clipboard_text(void)
+{
+    const char *reader = detect_clipboard_reader();
+    if (!reader)
+    {
+        return NULL;
+    }
+
+    static const char *text_types[] = { "text/uri-list", "text/plain" };
+    const size_t type_count = sizeof(text_types) / sizeof(text_types[0]);
+
+    for (size_t i = 0; i < type_count; i++)
+    {
+        char cmd[256];
+        if (strcmp(reader, "wl-paste") == 0)
+        {
+            snprintf(cmd, sizeof(cmd), "wl-paste --type %s --no-newline", text_types[i]);
+        }
+        else if (strcmp(reader, "xclip") == 0)
+        {
+            snprintf(cmd, sizeof(cmd), "xclip -selection clipboard -t %s -o", text_types[i]);
+        }
+        else if (strcmp(reader, "xsel") == 0)
+        {
+            snprintf(cmd, sizeof(cmd), "xsel --clipboard --output");
+        }
+        else if (strcmp(reader, "pbpaste") == 0)
+        {
+            snprintf(cmd, sizeof(cmd), "pbpaste");
+        }
+        else
+        {
+            continue;
+        }
+
+        unsigned char *data = NULL;
+        size_t size = 0;
+        if (!run_command_capture(cmd, &data, &size))
+        {
+            continue;
+        }
+
+        char *text = malloc(size + 1);
+        if (!text)
+        {
+            free(data);
+            continue;
+        }
+
+        memcpy(text, data, size);
+        text[size] = '\0';
+        free(data);
+
+        return text;
+    }
+
+    return NULL;
+}
+
+static char *
+trim_whitespace(char *str)
+{
+    if (!str)
+    {
+        return NULL;
+    }
+
+    char *end;
+
+    while (*str && isspace((unsigned char)*str))
+    {
+        str++;
+    }
+
+    if (*str == '\0')
+    {
+        return str;
+    }
+
+    end = str + strlen(str);
+    while (end > str && isspace((unsigned char)*(end - 1)))
+    {
+        end--;
+    }
+    *end = '\0';
+
+    return str;
+}
+
+char *
+read_clipboard_file_path(void)
+{
+    char *text = get_clipboard_text();
+    if (!text)
+    {
+        return NULL;
+    }
+
+    char *newline = strchr(text, '\n');
+    if (newline)
+    {
+        *newline = '\0';
+    }
+
+    char *trimmed = trim_whitespace(text);
+    if (trimmed[0] == '\0')
+    {
+        free(text);
+        return NULL;
+    }
+
+    char *path = NULL;
+
+    if (is_file_uri(trimmed))
+    {
+        path = decode_file_uri(trimmed);
+    }
+    else
+    {
+        path = strdup(trimmed);
+    }
+
+    free(text);
+
+    if (!path)
+    {
+        return NULL;
+    }
+
+    struct stat file_stat;
+    if (stat(path, &file_stat) != 0 || !S_ISREG(file_stat.st_mode))
+    {
+        free(path);
+        return NULL;
+    }
+
+    return path;
+}
+
 char *
 read_clipboard_to_temp_file(void)
 {
