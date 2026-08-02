@@ -15,6 +15,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 option(HOSTMAN_USE_TUI "Build with TUI support (requires ncurses)" ON)
+option(HOSTMAN_USE_NOTIFY "Build with desktop notifications via libnotify (if available)" ON)
 
 find_package(CURL REQUIRED)
 find_package(SQLite3 REQUIRED)
@@ -34,9 +35,27 @@ if(HOSTMAN_USE_TUI)
     endif()
 endif()
 
+if(HOSTMAN_USE_NOTIFY AND NOT WIN32)
+    find_package(PkgConfig QUIET)
+    if(PKG_CONFIG_FOUND)
+        pkg_check_modules(LIBNOTIFY QUIET libnotify)
+        if(LIBNOTIFY_FOUND)
+            add_definitions(-DHAVE_LIBNOTIFY)
+            message(STATUS "libnotify found, desktop notifications enabled")
+        else()
+            message(STATUS "libnotify not found, desktop notifications disabled")
+        endif()
+    else()
+        message(STATUS "pkg-config not found, desktop notifications disabled")
+    endif()
+else()
+    message(STATUS "Desktop notifications disabled")
+endif()
+
 set(HOSTMAN_CORE_SOURCES
     src/core/config.c
     src/core/logging.c
+    src/core/notification.c
     src/core/utils.c)
 
 set(HOSTMAN_UI_SOURCES
@@ -73,6 +92,7 @@ include_directories(
     ${SQLite3_INCLUDE_DIRS}
     ${JSON_INCLUDE_DIR}
     ${OPENSSL_INCLUDE_DIR}
+    ${LIBNOTIFY_INCLUDE_DIRS}
 )
 
 add_executable(hostman ${HOSTMAN_SOURCES})
@@ -84,6 +104,10 @@ target_link_libraries(hostman
     ${OPENSSL_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     m)
+
+if(HOSTMAN_USE_NOTIFY AND LIBNOTIFY_FOUND)
+    target_link_libraries(hostman ${LIBNOTIFY_LIBRARIES})
+endif()
 
 if(HOSTMAN_USE_TUI)
     target_link_libraries(hostman ${CURSES_LIBRARIES})

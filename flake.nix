@@ -15,7 +15,7 @@
         packages = rec {
           hostman = pkgs.stdenv.mkDerivation {
             pname = "hostman";
-            version = "1.2.6";
+            version = "1.2.7";
 
             src = self;
 
@@ -29,6 +29,7 @@
               pkgs.sqlite
               pkgs.openssl
               pkgs.ncurses
+              pkgs.libnotify
             ];
 
             cmakeFlags = [

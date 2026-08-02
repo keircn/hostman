@@ -2,6 +2,7 @@
 #include "hostman/cli/tui.h"
 #include "hostman/core/config.h"
 #include "hostman/core/logging.h"
+#include "hostman/core/notification.h"
 #include "hostman/core/utils.h"
 #include "hostman/network/hosts.h"
 #include "hostman/network/network.h"
@@ -1303,6 +1304,8 @@ execute_command(command_args_t *args)
                         print_info("  File: %s (%s)\n", filename, size_str);
                         print_info("  Host: %s\n", host->name);
 
+                        notify_send("Upload successful", response->url);
+
                         double time_ms = response->request_time_ms;
                         char time_str[32];
                         if (time_ms < 1000)
@@ -1361,6 +1364,7 @@ execute_command(command_args_t *args)
                     else
                     {
                         print_error("Error: %s\n", response->error_message);
+                        notify_send_error("Upload failed", response->error_message);
                         network_free_response(response);
                         free(filename);
                         config_free(config);
@@ -1390,6 +1394,20 @@ execute_command(command_args_t *args)
                 else
                 {
                     print_info("  Failed:      0\n");
+                }
+
+                if (success_count > 0 && failure_count == 0)
+                {
+                    char body[128];
+                    snprintf(body, sizeof(body), "%d file(s) uploaded successfully", success_count);
+                    notify_send("Batch upload complete", body);
+                }
+                else if (failure_count > 0)
+                {
+                    char body[128];
+                    snprintf(
+                      body, sizeof(body), "%d succeeded, %d failed", success_count, failure_count);
+                    notify_send_error("Batch upload finished", body);
                 }
 
                 if (success_count > 0)

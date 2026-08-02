@@ -1,6 +1,7 @@
 #include "hostman/cli/cli.h"
 #include "hostman/core/config.h"
 #include "hostman/core/logging.h"
+#include "hostman/core/notification.h"
 #include "hostman/core/utils.h"
 #include "hostman/crypto/encryption.h"
 #include "hostman/network/network.h"
@@ -60,11 +61,14 @@ main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    notification_init();
+
     command_args_t args = parse_args(argc, argv);
 
     int result = execute_command(&args);
 
     free_command_args(&args);
+    notification_cleanup();
     encryption_cleanup();
     network_cleanup();
     db_close();

@@ -17,6 +17,7 @@
 | SQLite3 | Local database storage | Yes |
 | OpenSSL | Cryptography | Yes |
 | ncurses | TUI support | Optional (via `HOSTMAN_USE_TUI`) |
+| libnotify | Desktop notifications | Optional (auto-detected via pkg-config) |
 
 ---
 
