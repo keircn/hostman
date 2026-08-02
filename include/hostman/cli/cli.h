@@ -40,6 +40,8 @@ typedef struct
     bool continue_on_error;
     bool no_clipboard;
     bool insecure;
+    bool from_clipboard;
+    char *clipboard_temp_file;
     int throttle_ms;
     int page;
     int limit;

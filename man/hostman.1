@@ -43,6 +43,8 @@ hostman upload [options] <file_path> [file_path...]
 .br
 hostman upload [options] \-\-directory <path>
 .br
+hostman upload [options] \-\-clipboard
+.br
 hostman upload [options] (reads file paths from stdin if no args)
 .P
 .B Options:
@@ -53,6 +55,9 @@ Host to use (default: configured default host).
 .TP
 \-\-directory, \-d <path>
 Upload all files from a directory.
+.TP
+\-\-clipboard, \-p
+Upload an image directly from the clipboard (requires wl-paste, xclip, or xsel).
 .TP
 \-\-continue-on-error, \-c
 Continue batch upload if a file fails.
@@ -156,6 +161,8 @@ SQLite upload history database.
 hostman upload image.png
 .TP
 hostman upload file1.png file2.jpg \-\-throttle 1000
+.TP
+hostman upload \-\-clipboard
 .TP
 hostman upload \-\-directory ./screenshots \-\-continue-on-error
 .TP

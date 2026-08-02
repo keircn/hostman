@@ -218,7 +218,8 @@ print_command_help(const char *command)
 
         print_section_header("USAGE");
         printf("  hostman upload [options] <file_path> [file_path...]\n");
-        printf("  hostman upload [options] --directory <path>\n\n");
+        printf("  hostman upload [options] --directory <path>\n");
+        printf("  hostman upload [options] --clipboard\n\n");
         printf("  Global options like --quiet/--json/--verbose/--no-color can be used before or "
                "after the command.\n\n");
 
@@ -226,6 +227,7 @@ print_command_help(const char *command)
         print_option("--host <name>",
                      "Specify which host to use. If not provided, the default host will be used");
         print_option("--directory, -d <path>", "Upload all files from a directory");
+        print_option("--clipboard, -p", "Upload an image directly from the clipboard");
         print_option("--continue-on-error, -c", "Continue uploading if a file fails (batch mode)");
         print_option("--throttle, -t <ms>",
                      "Delay between uploads in ms (batch mode, avoids rate limits)");
@@ -237,6 +239,7 @@ print_command_help(const char *command)
         printf("  hostman upload image.png\n");
         printf("  hostman upload file1.png file2.jpg file3.gif\n");
         printf("  hostman upload --directory ./screenshots/\n");
+        printf("  hostman upload --clipboard\n");
         printf("  hostman upload -d ./images/ --continue-on-error\n");
         printf("  hostman upload -d ./images/ --throttle 1000\n");
         return;
@@ -685,6 +688,7 @@ parse_args(int argc, char *argv[])
                 { "throttle", required_argument, 0, 't' },
                 { "no-clipboard", no_argument, 0, 'n' },
                 { "insecure", no_argument, 0, 'k' },
+                { "clipboard", no_argument, 0, 'p' },
                 { "quiet", no_argument, 0, 'q' },
                 { "json", no_argument, 0, OPT_GLOBAL_JSON },
                 { "verbose", no_argument, 0, OPT_GLOBAL_VERBOSE },
@@ -697,7 +701,7 @@ parse_args(int argc, char *argv[])
             int c;
             optind = cmd_index + 1;
 
-            while ((c = getopt_long(argc, argv, "h:d:ct:nkq", long_options, &option_index)) != -1)
+            while ((c = getopt_long(argc, argv, "h:d:ct:nkpq", long_options, &option_index)) != -1)
             {
                 switch (c)
                 {
@@ -721,6 +725,9 @@ parse_args(int argc, char *argv[])
                     case 'k':
                         args.insecure = true;
                         break;
+                    case 'p':
+                        args.from_clipboard = true;
+                        break;
                     case '?':
                         print_command_help("upload");
                         exit(EXIT_SUCCESS);
@@ -730,7 +737,38 @@ parse_args(int argc, char *argv[])
                 }
             }
 
-            if (args.directory)
+            if (args.from_clipboard)
+            {
+                if (args.directory || optind < argc)
+                {
+                    print_error("Error: --clipboard cannot be combined with file paths or "
+                                "--directory\n");
+                    args.type = CMD_UNKNOWN;
+                    break;
+                }
+
+                char *temp_file = read_clipboard_to_temp_file();
+                if (!temp_file)
+                {
+                    print_error("Error: No image found in clipboard\n");
+                    print_info("  Copy an image to the clipboard first, or use a file path.\n");
+                    args.type = CMD_UNKNOWN;
+                    break;
+                }
+
+                args.clipboard_temp_file = temp_file;
+                args.file_count = 1;
+                args.file_paths = malloc(sizeof(char *));
+                if (!args.file_paths)
+                {
+                    print_error("Error: Out of memory\n");
+                    args.type = CMD_UNKNOWN;
+                    break;
+                }
+                args.file_paths[0] = strdup(temp_file);
+                args.file_path = strdup(temp_file);
+            }
+            else if (args.directory)
             {
                 struct stat dir_stat;
                 if (stat(args.directory, &dir_stat) != 0 || !S_ISDIR(dir_stat.st_mode))
@@ -2048,6 +2086,11 @@ free_command_args(command_args_t *args)
 {
     if (args)
     {
+        if (args->clipboard_temp_file)
+        {
+            unlink(args->clipboard_temp_file);
+            free(args->clipboard_temp_file);
+        }
         free(args->host_name);
         free(args->file_path);
         free(args->directory);

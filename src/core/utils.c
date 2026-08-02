@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <cJSON.h>
@@ -454,6 +456,244 @@ copy_to_clipboard(const char *text)
     }
 
     return true;
+}
+
+static const char *
+detect_clipboard_reader(void)
+{
+    static char command_found[64] = { 0 };
+
+    if (command_found[0] != '\0')
+    {
+        return command_found;
+    }
+
+    const char *session_type = getenv("XDG_SESSION_TYPE");
+    const bool is_wayland_session = session_type && strcmp(session_type, "wayland") == 0;
+    const bool has_wayland_display = getenv("WAYLAND_DISPLAY") != NULL;
+    const bool has_display = getenv("DISPLAY") != NULL;
+
+    const char *preferred[6];
+    size_t manager_count = 0;
+
+    if (is_wayland_session)
+    {
+        preferred[manager_count++] = "wl-paste";
+    }
+    else
+    {
+        if (has_display)
+        {
+            preferred[manager_count++] = "xclip";
+            preferred[manager_count++] = "xsel";
+        }
+        if (has_wayland_display)
+        {
+            preferred[manager_count++] = "wl-paste";
+        }
+    }
+
+    preferred[manager_count++] = "wl-paste";
+    preferred[manager_count++] = "xclip";
+    preferred[manager_count++] = "xsel";
+    preferred[manager_count++] = "pbpaste";
+
+    for (size_t i = 0; i < manager_count; i++)
+    {
+        const char *resolved = find_command_in_path(preferred[i]);
+        if (resolved)
+        {
+            strncpy(command_found, preferred[i], sizeof(command_found) - 1);
+            command_found[sizeof(command_found) - 1] = '\0';
+            return command_found;
+        }
+    }
+
+    return NULL;
+}
+
+static bool
+run_command_capture(const char *cmd, unsigned char **data, size_t *size)
+{
+    FILE *pipe = popen(cmd, "r");
+    if (!pipe)
+    {
+        log_error("Failed to open pipe to command: %s", cmd);
+        return false;
+    }
+
+    size_t capacity = 4096;
+    size_t used = 0;
+    unsigned char *buf = malloc(capacity);
+    if (!buf)
+    {
+        pclose(pipe);
+        return false;
+    }
+
+    while (1)
+    {
+        if (used == capacity)
+        {
+            capacity *= 2;
+            unsigned char *nbuf = realloc(buf, capacity);
+            if (!nbuf)
+            {
+                free(buf);
+                pclose(pipe);
+                return false;
+            }
+            buf = nbuf;
+        }
+        size_t n = fread(buf + used, 1, capacity - used, pipe);
+        if (n == 0)
+            break;
+        used += n;
+    }
+
+    int status = pclose(pipe);
+
+    if (status != 0 || used == 0)
+    {
+        free(buf);
+        return false;
+    }
+
+    *data = buf;
+    *size = used;
+    return true;
+}
+
+static const char *
+detect_image_extension(const unsigned char *data, size_t size)
+{
+    if (!data || size == 0)
+        return NULL;
+
+    if (size >= 8 && data[0] == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G')
+        return "png";
+    if (size >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)
+        return "jpg";
+    if (size >= 4 && memcmp(data, "GIF8", 4) == 0)
+        return "gif";
+    if (size >= 12 && memcmp(data, "RIFF", 4) == 0 && memcmp(data + 8, "WEBP", 4) == 0)
+        return "webp";
+    if (size >= 2 && data[0] == 'B' && data[1] == 'M')
+        return "bmp";
+
+    return NULL;
+}
+
+char *
+read_clipboard_to_temp_file(void)
+{
+    const char *reader = detect_clipboard_reader();
+    if (!reader)
+    {
+        log_error("No clipboard reader found. Install wl-paste, xclip, or xsel");
+        return NULL;
+    }
+
+    static const char *image_types[] = {
+        "image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp"
+    };
+
+    unsigned char *data = NULL;
+    size_t size = 0;
+    const char *ext = NULL;
+
+    for (size_t i = 0; i < sizeof(image_types) / sizeof(image_types[0]); i++)
+    {
+        char cmd[256];
+        if (strcmp(reader, "wl-paste") == 0)
+        {
+            snprintf(cmd, sizeof(cmd), "wl-paste --type %s --no-newline", image_types[i]);
+        }
+        else if (strcmp(reader, "xclip") == 0)
+        {
+            snprintf(cmd, sizeof(cmd), "xclip -selection clipboard -t %s -o", image_types[i]);
+        }
+        else if (strcmp(reader, "xsel") == 0)
+        {
+            snprintf(cmd, sizeof(cmd), "xsel --clipboard --output");
+        }
+        else if (strcmp(reader, "pbpaste") == 0)
+        {
+            snprintf(cmd, sizeof(cmd), "pbpaste");
+        }
+        else
+        {
+            continue;
+        }
+
+        if (run_command_capture(cmd, &data, &size))
+        {
+            ext = detect_image_extension(data, size);
+            if (ext)
+            {
+                break;
+            }
+            free(data);
+            data = NULL;
+            size = 0;
+        }
+    }
+
+    if (!data || !ext)
+    {
+        log_error("No image found in clipboard");
+        return NULL;
+    }
+
+    char *cache_dir = get_cache_dir();
+    if (!cache_dir)
+    {
+        free(data);
+        return NULL;
+    }
+
+    if (access(cache_dir, F_OK) != 0)
+    {
+        if (mkdir(cache_dir, 0755) != 0)
+        {
+            log_error("Failed to create cache directory: %s", cache_dir);
+            free(data);
+            free(cache_dir);
+            return NULL;
+        }
+    }
+
+    char path[512];
+    snprintf(path,
+             sizeof(path),
+             "%s/clipboard-upload-%ld-%ld.%s",
+             cache_dir,
+             (long)getpid(),
+             (long)time(NULL),
+             ext);
+
+    FILE *f = fopen(path, "wb");
+    if (!f)
+    {
+        log_error("Failed to create temp file: %s", path);
+        free(data);
+        free(cache_dir);
+        return NULL;
+    }
+
+    size_t written = fwrite(data, 1, size, f);
+    fclose(f);
+    free(data);
+    free(cache_dir);
+
+    if (written != size)
+    {
+        log_error("Failed to write clipboard data to %s", path);
+        unlink(path);
+        return NULL;
+    }
+
+    return strdup(path);
 }
 
 void
