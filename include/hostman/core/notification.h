@@ -8,6 +8,8 @@ notification_init(void);
 void
 notification_cleanup(void);
 void
+notification_set_enabled(bool enabled);
+void
 notify_send(const char *summary, const char *body);
 void
 notify_send_error(const char *summary, const char *body);

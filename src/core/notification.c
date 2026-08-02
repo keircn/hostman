@@ -6,6 +6,7 @@
 #include <libnotify/notify.h>
 
 static bool notification_ready = false;
+static bool notification_enabled = true;
 
 bool
 notification_init(void)
@@ -30,10 +31,16 @@ notification_cleanup(void)
     }
 }
 
+void
+notification_set_enabled(bool enabled)
+{
+    notification_enabled = enabled;
+}
+
 static void
 notify_show(const char *summary, const char *body, NotifyUrgency urgency)
 {
-    if (!notification_ready)
+    if (!notification_ready || !notification_enabled)
     {
         return;
     }
@@ -84,6 +91,12 @@ notification_init(void)
 void
 notification_cleanup(void)
 {
+}
+
+void
+notification_set_enabled(bool enabled)
+{
+    (void)enabled;
 }
 
 void

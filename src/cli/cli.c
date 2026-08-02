@@ -82,6 +82,7 @@ handle_global_option(int c, command_args_t *args)
         case 'q':
             args->output_mode = OUTPUT_QUIET;
             current_output_mode = OUTPUT_QUIET;
+            notification_set_enabled(false);
             break;
         case OPT_GLOBAL_JSON:
             args->output_mode = OUTPUT_JSON;
@@ -478,6 +479,7 @@ parse_args(int argc, char *argv[])
         {
             args.output_mode = OUTPUT_QUIET;
             current_output_mode = OUTPUT_QUIET;
+            notification_set_enabled(false);
         }
         else if (strcmp(argv[i], "--verbose") == 0)
         {
